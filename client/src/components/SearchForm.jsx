@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Search, MapPin, SlidersHorizontal, AlertCircle } from 'lucide-react';
 
 export default function SearchForm({ onResults }) {
   const [category, setCategory] = useState('');
@@ -18,7 +19,11 @@ export default function SearchForm({ onResults }) {
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: category.trim(), location: location.trim(), maxPages: parseInt(maxPages) }),
+        body: JSON.stringify({
+          category: category.trim(),
+          location: location.trim(),
+          maxPages: parseInt(maxPages),
+        }),
       });
 
       const data = await res.json();
@@ -40,52 +45,71 @@ export default function SearchForm({ onResults }) {
 
   return (
     <div className="card">
-      <form className="search-form" onSubmit={handleSearch}>
-        <div className="form-group">
-          <label htmlFor="category">Business Category</label>
-          <input
-            id="category"
-            type="text"
-            placeholder='e.g. "salons", "turf", "gyms"'
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            required
-          />
-        </div>
+      <div className="card-header">
+        <h2><Search /> Find businesses without websites</h2>
+      </div>
+      <div className="card-body">
+        <form className="search-form" onSubmit={handleSearch}>
+          <div className="form-group">
+            <label htmlFor="category">Business Category</label>
+            <div className="input-wrap">
+              <Search />
+              <input
+                id="category"
+                type="text"
+                placeholder='e.g. "salons", "gyms", "turf"'
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                required
+              />
+            </div>
+          </div>
 
-        <div className="form-group">
-          <label htmlFor="location">City / Location</label>
-          <input
-            id="location"
-            type="text"
-            placeholder='e.g. "Mumbai", "Pune"'
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            required
-          />
-        </div>
+          <div className="form-group">
+            <label htmlFor="location">City / Location</label>
+            <div className="input-wrap">
+              <MapPin />
+              <input
+                id="location"
+                type="text"
+                placeholder='e.g. "Mumbai", "Pune"'
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                required
+              />
+            </div>
+          </div>
 
-        <div className="form-group" style={{ maxWidth: 140 }}>
-          <label htmlFor="maxPages">Max Results</label>
-          <select id="maxPages" value={maxPages} onChange={(e) => setMaxPages(e.target.value)}>
-            <option value="1">~20</option>
-            <option value="3">~60</option>
-            <option value="5">~100</option>
-            <option value="7">~140</option>
-            <option value="10">~200</option>
-          </select>
-        </div>
+          <div className="form-group">
+            <label htmlFor="maxPages">Max Results</label>
+            <div className="input-wrap">
+              <SlidersHorizontal />
+              <select id="maxPages" value={maxPages} onChange={(e) => setMaxPages(e.target.value)}>
+                <option value="1">~20</option>
+                <option value="3">~60</option>
+                <option value="5">~100</option>
+                <option value="7">~140</option>
+                <option value="10">~200</option>
+              </select>
+            </div>
+          </div>
 
-        <button type="submit" className="btn btn-primary" disabled={loading} style={{ height: 42 }}>
-          {loading ? <><span className="spinner" /> Searching…</> : '🔍 Search'}
-        </button>
-      </form>
+          <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
+            {loading ? (
+              <><span className="spinner spinner-white" /> Searching...</>
+            ) : (
+              <><Search size={16} /> Search</>
+            )}
+          </button>
+        </form>
 
-      {error && (
-        <p style={{ color: 'var(--error)', fontSize: 13, marginTop: 12 }}>
-          ⚠ {error}
-        </p>
-      )}
+        {error && (
+          <div className="error-msg">
+            <AlertCircle />
+            {error}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

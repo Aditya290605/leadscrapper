@@ -1,9 +1,20 @@
 import { useState, useMemo } from 'react';
+import {
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Mail,
+  CheckSquare,
+  Square,
+  Star,
+  ChevronDown,
+  Table2,
+} from 'lucide-react';
 
 export default function ResultsTable({ leads, total, filtered, onLeadsUpdate, onProceedToEmail }) {
   const [selected, setSelected] = useState(new Set());
+  const [showDownload, setShowDownload] = useState(false);
 
-  // Toggle a single row
   const toggle = (id) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -12,21 +23,16 @@ export default function ResultsTable({ leads, total, filtered, onLeadsUpdate, on
     });
   };
 
-  // Select / Deselect all
   const allSelected = leads.length > 0 && selected.size === leads.length;
-  const toggleAll = () => {
-    setSelected(allSelected ? new Set() : new Set(leads.map((l) => l.id)));
-  };
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(leads.map((l) => l.id)));
 
-  // Currently selected leads
   const selectedLeads = useMemo(() => leads.filter((l) => selected.has(l.id)), [leads, selected]);
 
-  // Update email for a lead
   const updateEmail = (id, email) => {
     onLeadsUpdate(leads.map((l) => (l.id === id ? { ...l, email } : l)));
   };
 
-  // ── Export handlers ─────────────────────────────────────────────────
+  // ── Exports ─────────────────────────────────────────────────────────
   const downloadBlob = (blob, filename) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -44,8 +50,8 @@ export default function ResultsTable({ leads, total, filtered, onLeadsUpdate, on
       body: JSON.stringify({ leads: data }),
     });
     if (!res.ok) return alert('Export failed');
-    const blob = await res.blob();
-    downloadBlob(blob, 'leads.xlsx');
+    downloadBlob(await res.blob(), 'leads.xlsx');
+    setShowDownload(false);
   };
 
   const exportCsv = async () => {
@@ -56,52 +62,90 @@ export default function ResultsTable({ leads, total, filtered, onLeadsUpdate, on
       body: JSON.stringify({ leads: data }),
     });
     if (!res.ok) return alert('Export failed');
-    const blob = await res.blob();
-    downloadBlob(blob, 'leads.csv');
+    downloadBlob(await res.blob(), 'leads.csv');
+    setShowDownload(false);
   };
 
-  // ── Proceed to email (only leads with an email filled in) ──────────
   const handleEmailClick = () => {
     const withEmail = selectedLeads.filter((l) => l.email.trim());
-    if (!withEmail.length) {
-      return alert('Fill in the Email column for at least one selected lead.');
-    }
+    if (!withEmail.length) return alert('Fill in the Email column for at least one selected lead.');
     onProceedToEmail(withEmail);
   };
 
   if (!leads.length) {
     return (
       <div className="empty-state">
-        <div className="icon">📋</div>
-        <p>No results yet. Run a search to find businesses without websites.</p>
+        <div className="empty-state-icon"><Table2 /></div>
+        <h3>No results yet</h3>
+        <p>Run a search to find businesses without websites in your target area.</p>
       </div>
     );
   }
 
   return (
-    <>
-      {/* Stats + action bar */}
-      <div className="results-bar">
-        <div className="stats">
-          Found <strong>{total}</strong> businesses, <strong>{filtered}</strong> without a website
-          {selected.size > 0 && <> · <strong>{selected.size}</strong> selected</>}
+    <div className="sheet">
+      {/* ── Toolbar ──────────────────────────────────────────── */}
+      <div className="sheet-toolbar">
+        <div className="sheet-toolbar-left">
+          <span className="sheet-info">
+            <strong>{filtered}</strong> of {total} businesses have no website
+          </span>
+          {selected.size > 0 && (
+            <>
+              <div className="divider" />
+              <span className="sheet-count">
+                <CheckSquare size={12} />
+                {selected.size} selected
+              </span>
+            </>
+          )}
         </div>
-        <div className="actions">
-          <button className="btn btn-secondary btn-sm" onClick={exportXlsx}>📥 Export XLSX</button>
-          <button className="btn btn-secondary btn-sm" onClick={exportCsv}>📄 Export CSV</button>
+
+        <div className="sheet-toolbar-right">
+          {/* Download dropdown */}
+          <div className="download-group">
+            <button
+              className="btn btn-outline"
+              onClick={() => setShowDownload((s) => !s)}
+              onBlur={() => setTimeout(() => setShowDownload(false), 150)}
+            >
+              <Download size={15} />
+              Download
+              <ChevronDown size={14} />
+            </button>
+
+            {showDownload && (
+              <div className="download-menu">
+                <button className="download-menu-item" onMouseDown={exportXlsx}>
+                  <FileSpreadsheet />
+                  <span>Excel Workbook</span>
+                  <small>.xlsx</small>
+                </button>
+                <button className="download-menu-item" onMouseDown={exportCsv}>
+                  <FileText />
+                  <span>Contacts CSV</span>
+                  <small>.csv</small>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="divider" />
+
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary"
             onClick={handleEmailClick}
             disabled={selected.size === 0}
           >
-            ✉️ Email Selected
+            <Mail size={15} />
+            Email Selected
           </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="leads-table-wrap">
-        <table className="leads-table">
+      {/* ── Table ────────────────────────────────────────────── */}
+      <div className="sheet-table-wrap">
+        <table className="sheet-table">
           <thead>
             <tr>
               <th>
@@ -117,7 +161,7 @@ export default function ResultsTable({ leads, total, filtered, onLeadsUpdate, on
           </thead>
           <tbody>
             {leads.map((lead) => (
-              <tr key={lead.id}>
+              <tr key={lead.id} className={selected.has(lead.id) ? 'selected' : ''}>
                 <td>
                   <input
                     type="checkbox"
@@ -125,16 +169,23 @@ export default function ResultsTable({ leads, total, filtered, onLeadsUpdate, on
                     onChange={() => toggle(lead.id)}
                   />
                 </td>
-                <td style={{ fontWeight: 500 }}>{lead.name}</td>
+                <td className="cell-name">{lead.name}</td>
                 <td>{lead.phone || '—'}</td>
-                <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{lead.address}</td>
-                <td><span className="rating">{lead.rating ? `⭐ ${lead.rating}` : '—'}</span></td>
+                <td className="cell-address">{lead.address}</td>
+                <td>
+                  {lead.rating ? (
+                    <span className="cell-rating">
+                      <Star />
+                      {lead.rating}
+                    </span>
+                  ) : '—'}
+                </td>
                 <td>{lead.reviews || '—'}</td>
                 <td>
                   <input
                     type="email"
-                    className="email-input"
-                    placeholder="add email…"
+                    className="email-cell-input"
+                    placeholder="Add email..."
                     value={lead.email}
                     onChange={(e) => updateEmail(lead.id, e.target.value)}
                   />
@@ -144,6 +195,12 @@ export default function ResultsTable({ leads, total, filtered, onLeadsUpdate, on
           </tbody>
         </table>
       </div>
-    </>
+
+      {/* ── Footer ───────────────────────────────────────────── */}
+      <div className="sheet-footer">
+        <span>{leads.length} rows</span>
+        <span>{selected.size ? `${selected.size} selected` : 'None selected'}</span>
+      </div>
+    </div>
   );
 }
