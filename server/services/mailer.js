@@ -90,7 +90,7 @@ function buildHtml(bodyText, { senderName, senderPhone, senderEmail, ctaUrl, stu
 
   <!-- ═══ Banner ═══ -->
   <tr>
-    <td style="background:#667eea;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:36px 40px;text-align:center;">
+    <td style="background:#059669;background:linear-gradient(135deg,#10b981 0%,#047857 100%);padding:36px 40px;text-align:center;">
       <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;letter-spacing:-0.5px;">${studioName}</h1>
       <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;font-weight:400;">Web &bull; Apps &bull; Automation</p>
     </td>
@@ -113,7 +113,7 @@ function buildHtml(bodyText, { senderName, senderPhone, senderEmail, ctaUrl, stu
   <!-- ═══ CTA Button ═══ -->
   <tr>
     <td style="padding:24px 40px 32px;text-align:center;">
-      <a href="${ctaUrl}" target="_blank" style="display:inline-block;padding:14px 36px;background:#667eea;background:linear-gradient(135deg,#667eea,#764ba2);color:#ffffff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;letter-spacing:0.3px;">Let\u2019s Talk &rarr;</a>
+      <a href="${ctaUrl}" target="_blank" style="display:inline-block;padding:14px 36px;background:#059669;background:linear-gradient(135deg,#10b981,#047857);color:#ffffff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;letter-spacing:0.3px;">Let\u2019s Talk &rarr;</a>
     </td>
   </tr>
 
