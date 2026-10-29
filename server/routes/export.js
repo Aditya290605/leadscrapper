@@ -1,4 +1,4 @@
-// POST /api/export/xlsx  — styled Excel export with all business details
+// POST /api/export/xlsx  — styled Excel export with all business details & links
 // POST /api/export/csv   — complete CSV export
 const express = require('express');
 const ExcelJS = require('exceljs');
@@ -19,11 +19,13 @@ router.post('/xlsx', async (req, res) => {
     ws.columns = [
       { header: 'Business Name', key: 'name', width: 34 },
       { header: 'Phone Number', key: 'phone', width: 20 },
+      { header: 'WhatsApp Link', key: 'whatsappUrl', width: 22 },
       { header: 'Email Address', key: 'email', width: 28 },
       { header: 'Avg Rating', key: 'rating', width: 12 },
       { header: 'Review Count', key: 'reviews', width: 14 },
       { header: 'Address', key: 'address', width: 44 },
-      { header: 'Google Maps Link', key: 'mapsUrl', width: 36 },
+      { header: 'Google Maps Link', key: 'mapsUrl', width: 24 },
+      { header: 'Instagram Search', key: 'instagramSearchUrl', width: 24 },
     ];
 
     // Header row styling
@@ -38,11 +40,13 @@ router.post('/xlsx', async (req, res) => {
       ws.addRow({
         name: lead.name || 'Unnamed Business',
         phone: lead.phone || '',
+        whatsappUrl: lead.whatsappUrl || '',
         email: lead.email || '',
         rating: lead.rating !== null && lead.rating !== undefined ? Number(lead.rating) : '—',
         reviews: lead.reviews ?? 0,
         address: lead.address || '',
         mapsUrl: lead.mapsUrl || '',
+        instagramSearchUrl: lead.instagramSearchUrl || '',
       });
     });
 
@@ -55,16 +59,22 @@ router.post('/xlsx', async (req, res) => {
         row.alignment = { vertical: 'middle', wrapText: true };
         row.height = 24;
 
-        // Make Google Maps cell a clickable link if present
-        const mapsCell = row.getCell('mapsUrl');
-        if (mapsCell.value && typeof mapsCell.value === 'string' && mapsCell.value.startsWith('http')) {
-          mapsCell.value = {
-            text: 'View on Maps',
-            hyperlink: mapsCell.value,
-            tooltip: mapsCell.value,
-          };
-          mapsCell.font = { color: { argb: 'FF2563EB' }, underline: true };
-        }
+        // Make URLs clickable links
+        const makeHyperlink = (colKey, labelText) => {
+          const cell = row.getCell(colKey);
+          if (cell.value && typeof cell.value === 'string' && cell.value.startsWith('http')) {
+            cell.value = {
+              text: labelText,
+              hyperlink: cell.value,
+              tooltip: cell.value,
+            };
+            cell.font = { color: { argb: 'FF2563EB' }, underline: true };
+          }
+        };
+
+        makeHyperlink('whatsappUrl', 'Open WhatsApp');
+        makeHyperlink('mapsUrl', 'View on Maps');
+        makeHyperlink('instagramSearchUrl', 'Find on Insta');
       }
 
       // Thin borders
@@ -99,18 +109,20 @@ router.post('/csv', (req, res) => {
       return `"${str}"`;
     };
 
-    const header = ['Business Name', 'Phone', 'Email', 'Avg Rating', 'Reviews', 'Address', 'Google Maps Link']
+    const header = ['Business Name', 'Phone', 'WhatsApp Link', 'Email', 'Avg Rating', 'Reviews', 'Address', 'Google Maps Link', 'Instagram Search']
       .map(escapeCsv)
       .join(',');
 
     const rows = leads.map((l) => [
       escapeCsv(l.name || ''),
       escapeCsv(l.phone || ''),
+      escapeCsv(l.whatsappUrl || ''),
       escapeCsv(l.email || ''),
       escapeCsv(l.rating ?? ''),
       escapeCsv(l.reviews ?? 0),
       escapeCsv(l.address || ''),
       escapeCsv(l.mapsUrl || ''),
+      escapeCsv(l.instagramSearchUrl || ''),
     ].join(','));
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

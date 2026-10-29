@@ -13,6 +13,7 @@ app.use(express.json({ limit: '5mb' })); // leads arrays can be large
 app.use('/api/search', require('./routes/search'));
 app.use('/api/export', require('./routes/export'));
 app.use('/api/email', require('./routes/email'));
+app.use('/api/quota', require('./routes/quota'));
 
 // ── Health check ────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

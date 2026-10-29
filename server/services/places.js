@@ -16,11 +16,13 @@ const FIELD_MASK = [
   'places.googleMapsUri',
 ].join(',');
 
-// Simple in-memory cache to save API quota on repeated or duplicate searches
+// Simple in-memory cache to save API quota on repeated searches
 // Format: key -> { data, expiresAt } (TTL: 1 hour)
 const searchCache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 50;
+
+const placesStats = { liveCalls: 0, cacheHits: 0 };
 
 function getCached(key) {
   const entry = searchCache.get(key);
@@ -34,11 +36,23 @@ function getCached(key) {
 
 function setCache(key, data) {
   if (searchCache.size >= MAX_CACHE_ENTRIES) {
-    // Evict oldest
     const firstKey = searchCache.keys().next().value;
     searchCache.delete(firstKey);
   }
   searchCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+function getPlacesStats() {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const configured = !!apiKey && apiKey !== 'your_places_api_key_here';
+  return {
+    configured,
+    liveCalls: placesStats.liveCalls,
+    cacheHits: placesStats.cacheHits,
+    cachedQueries: searchCache.size,
+    freeTierMonthlyCredit: '$200.00 / month (~90-100 searches)',
+    costPerRequest: '~$0.035 / Text Search page',
+  };
 }
 
 /**
@@ -52,13 +66,23 @@ function buildSearchQuery(query, category, location) {
   const loc = (location || '').trim();
 
   if (cat && loc) {
-    // Avoid "turf in mumbai in mumbai"
     if (cat.toLowerCase().includes(loc.toLowerCase())) {
       return cat;
     }
     return `${cat} in ${loc}`;
   }
   return cat || loc;
+}
+
+/**
+ * Clean phone number to digits only for WhatsApp links.
+ */
+function formatWhatsAppLink(phone) {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (!digits || digits.length < 10) return '';
+  const finalDigits = digits.length === 10 ? `91${digits}` : digits;
+  return `https://wa.me/${finalDigits}`;
 }
 
 /**
@@ -72,7 +96,7 @@ function buildSearchQuery(query, category, location) {
 async function searchBusinesses(textQuery, maxPages = 5, bypassCache = false) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey || apiKey === 'your_places_api_key_here') {
-    throw new Error('GOOGLE_PLACES_API_KEY is not configured in server/.env. Please add a valid Google Places API key.');
+    throw new Error('GOOGLE_PLACES_API_KEY is not configured in server/.env. Please add your Google Cloud Places API key.');
   }
 
   const normalizedQuery = textQuery.trim().toLowerCase();
@@ -81,6 +105,7 @@ async function searchBusinesses(textQuery, maxPages = 5, bypassCache = false) {
   if (!bypassCache) {
     const cached = getCached(cacheKey);
     if (cached) {
+      placesStats.cacheHits++;
       console.log(`[places] Returning cached results for "${normalizedQuery}"`);
       return cached;
     }
@@ -93,6 +118,7 @@ async function searchBusinesses(textQuery, maxPages = 5, bypassCache = false) {
     const body = { textQuery, pageSize: 20 };
     if (pageToken) body.pageToken = pageToken;
 
+    placesStats.liveCalls++;
     const res = await fetch(`${PLACES_API_BASE}/places:searchText`, {
       method: 'POST',
       headers: {
@@ -131,24 +157,37 @@ async function searchBusinesses(textQuery, maxPages = 5, bypassCache = false) {
 
 /**
  * Filter to businesses WITHOUT a website and normalize into a clean shape.
+ * Adds direct action links: Google Maps URL, WhatsApp link, and Instagram lookup URL.
  */
 function filterNoWebsite(places) {
   return places
     .filter((p) => !p.websiteUri || !p.websiteUri.trim())
-    .map((p) => ({
-      id: p.id,
-      name: p.displayName?.text || 'Unnamed Business',
-      address: p.formattedAddress || 'No address available',
-      phone: p.nationalPhoneNumber || p.internationalPhoneNumber || '',
-      rating: p.rating ?? null,
-      reviews: p.userRatingCount ?? 0,
-      mapsUrl: p.googleMapsUri || '',
-      email: '', // Not available from Places API — filled manually or via templates
-    }));
+    .map((p) => {
+      const name = p.displayName?.text || 'Unnamed Business';
+      const address = p.formattedAddress || '';
+      const phone = p.nationalPhoneNumber || p.internationalPhoneNumber || '';
+      const whatsappUrl = formatWhatsAppLink(phone);
+      const instagramSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(`${name} ${address} instagram`)}`;
+
+      return {
+        id: p.id,
+        name,
+        address,
+        phone,
+        rating: p.rating ?? null,
+        reviews: p.userRatingCount ?? 0,
+        mapsUrl: p.googleMapsUri || '',
+        whatsappUrl,
+        instagramSearchUrl,
+        email: '',
+      };
+    });
 }
 
 module.exports = {
   searchBusinesses,
   filterNoWebsite,
   buildSearchQuery,
+  formatWhatsAppLink,
+  getPlacesStats,
 };

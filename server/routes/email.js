@@ -1,11 +1,12 @@
-// POST /api/email/template  — Generate customizable master outreach template (email + WhatsApp)
+// POST /api/email/template  — Generate customizable master outreach template (email, WhatsApp, follow-up)
+// POST /api/email/render    — Fill placeholders with a specific lead's actual details
 // POST /api/email/generate  — AI-generate personalized emails for specific leads
 // POST /api/email/send      — Send emails via Gmail SMTP with delay
 // GET  /api/email/dnc       — Get do-not-contact list
 // POST /api/email/dnc       — Add to do-not-contact list
 // GET  /api/email/stats     — Daily send stats
 const express = require('express');
-const { generateEmail, generateMasterTemplate } = require('../services/gemini');
+const { generateEmail, generateMasterTemplate, renderTemplateForLead } = require('../services/gemini');
 const { sendEmail, getDncList, addToDnc, getSendStats } = require('../services/mailer');
 
 const router = express.Router();
@@ -15,14 +16,30 @@ router.post('/template', async (req, res) => {
   try {
     const { query, category, city } = req.body;
     if (!query && !category) {
-      return res.status(400).json({ error: 'Search term or category is required to generate a tailored template' });
+      return res.status(400).json({ error: 'Search term or category is required to generate an outreach template' });
     }
 
-    console.log(`[email/template] Generating master template for "${category || query}" in "${city || 'area'}"...`);
+    console.log(`[email/template] Generating outreach template for "${category || query}" in "${city || 'area'}"...`);
     const template = await generateMasterTemplate({ query, category, city });
     res.json({ template });
   } catch (err) {
     console.error('[email/template] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Render template for a specific lead ─────────────────────────────────
+router.post('/render', (req, res) => {
+  try {
+    const { templateText, lead } = req.body;
+    if (!templateText || !lead) {
+      return res.status(400).json({ error: 'templateText and lead are required' });
+    }
+
+    const rendered = renderTemplateForLead(templateText, lead);
+    res.json({ rendered });
+  } catch (err) {
+    console.error('[email/render] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
