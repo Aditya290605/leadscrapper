@@ -1,5 +1,15 @@
-import { useState } from 'react';
-import { Search, SlidersHorizontal, AlertCircle, ArrowRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, SlidersHorizontal, AlertCircle, ArrowRight, Sparkles } from 'lucide-react';
+
+const ANIMATED_PROMPTS = [
+  'turf in mumbai',
+  'gym in thane',
+  'dental clinic in andheri',
+  'coaching classes in pune',
+  'salons in bandra',
+  'sports club in bangalore',
+  'physiotherapy clinic in delhi',
+];
 
 const POPULAR_QUERIES = [
   'turf in mumbai',
@@ -14,6 +24,61 @@ export default function SearchForm({ onResults }) {
   const [maxPages, setMaxPages] = useState('3');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+
+  // ── Auto-typing dynamic placeholder animation ─────────────────────────
+  const [animatedText, setAnimatedText] = useState('');
+  const stateRef = useRef({
+    promptIndex: 0,
+    charIndex: 0,
+    isDeleting: false,
+  });
+
+  useEffect(() => {
+    // If the user is actively typing or input is focused with text, pause typing
+    if (query) return;
+
+    let timeout;
+    const typeSpeed = 55;
+    const deleteSpeed = 28;
+    const holdPromptTime = 2000;
+    const pauseBeforeNext = 300;
+
+    const tick = () => {
+      const { promptIndex, charIndex, isDeleting } = stateRef.current;
+      const currentPrompt = ANIMATED_PROMPTS[promptIndex % ANIMATED_PROMPTS.length];
+
+      if (!isDeleting) {
+        // Typing forward
+        if (charIndex < currentPrompt.length) {
+          stateRef.current.charIndex += 1;
+          setAnimatedText(currentPrompt.slice(0, stateRef.current.charIndex));
+          timeout = setTimeout(tick, typeSpeed);
+        } else {
+          // Finished typing word, hold
+          timeout = setTimeout(() => {
+            stateRef.current.isDeleting = true;
+            tick();
+          }, holdPromptTime);
+        }
+      } else {
+        // Deleting backward
+        if (charIndex > 0) {
+          stateRef.current.charIndex -= 1;
+          setAnimatedText(currentPrompt.slice(0, stateRef.current.charIndex));
+          timeout = setTimeout(tick, deleteSpeed);
+        } else {
+          // Finished deleting, move to next prompt
+          stateRef.current.isDeleting = false;
+          stateRef.current.promptIndex = (promptIndex + 1) % ANIMATED_PROMPTS.length;
+          timeout = setTimeout(tick, pauseBeforeNext);
+        }
+      }
+    };
+
+    timeout = setTimeout(tick, 300);
+    return () => clearTimeout(timeout);
+  }, [query]);
 
   const handleSearch = async (e, customQuery = null) => {
     if (e) e.preventDefault();
@@ -54,43 +119,56 @@ export default function SearchForm({ onResults }) {
     handleSearch(null, q);
   };
 
+  const placeholderDisplay = isFocused && !query
+    ? 'Type a category and city (e.g. gym in thane)...'
+    : `Try "${animatedText}"`;
+
   return (
     <div className="search-section">
       <div className="search-banner">
+        <div className="soft-tag">
+          <span className="soft-tag-dot" />
+          <span>Google Maps Discovery</span>
+        </div>
         <h2>Find Local Businesses Without Websites</h2>
         <p className="search-banner-sub">
-          Searches Google Maps, filters out any business that already has a website, and extracts phone numbers, ratings, and addresses ready for outreach.
+          Scrapes businesses on Google Maps, automatically filters out any that already have a web domain, and delivers phone numbers and ratings ready for outreach.
         </p>
       </div>
 
       <div className="search-main-card">
         <form onSubmit={handleSearch} className="search-form-layout">
-          <div className="search-bar-wrap">
+          <div className={`search-bar-wrap ${isFocused ? 'focused' : ''}`}>
             <Search className="search-bar-icon" size={18} />
             <input
               type="text"
               className="search-main-input"
-              placeholder='Try "turf in mumbai", "gym in thane", "dentist in pune"...'
+              placeholder={placeholderDisplay}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
               disabled={loading}
               autoFocus
             />
+            {!query && !isFocused && (
+              <span className="blinking-typing-cursor" aria-hidden="true" />
+            )}
           </div>
 
           <div className="search-bar-actions">
             <div className="select-depth-box">
-              <label htmlFor="maxPages">Volume:</label>
+              <label htmlFor="maxPages">Scan Volume:</label>
               <select
                 id="maxPages"
                 value={maxPages}
                 onChange={(e) => setMaxPages(e.target.value)}
                 disabled={loading}
               >
-                <option value="1">~20 results</option>
-                <option value="3">~60 results</option>
-                <option value="5">~100 results</option>
-                <option value="10">~200 results</option>
+                <option value="1">~20 leads</option>
+                <option value="3">~60 leads</option>
+                <option value="5">~100 leads</option>
+                <option value="10">~200 leads</option>
               </select>
             </div>
 
@@ -102,7 +180,7 @@ export default function SearchForm({ onResults }) {
               {loading ? (
                 <>
                   <span className="btn-spinner" />
-                  <span>Scanning Google Maps...</span>
+                  <span>Scanning Maps...</span>
                 </>
               ) : (
                 <>
@@ -122,7 +200,7 @@ export default function SearchForm({ onResults }) {
         )}
 
         <div className="quick-suggestions-row">
-          <span className="suggestions-title">Common Searches:</span>
+          <span className="suggestions-title">Popular searches:</span>
           <div className="suggestions-chips">
             {POPULAR_QUERIES.map((q) => (
               <button
