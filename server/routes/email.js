@@ -1,36 +1,75 @@
-// POST /api/email/generate  — AI-generate personalized emails
-// POST /api/email/send      — send emails via Gmail SMTP with delay
-// GET  /api/email/dnc       — get do-not-contact list
-// POST /api/email/dnc       — add to do-not-contact list
-// GET  /api/email/stats     — daily send stats
+// POST /api/email/template  — Generate customizable master outreach template (email, WhatsApp, follow-up)
+// POST /api/email/render    — Fill placeholders with a specific lead's actual details
+// POST /api/email/generate  — AI-generate personalized emails for specific leads
+// POST /api/email/send      — Send emails via Gmail SMTP with delay
+// GET  /api/email/dnc       — Get do-not-contact list
+// POST /api/email/dnc       — Add to do-not-contact list
+// GET  /api/email/stats     — Daily send stats
 const express = require('express');
-const { generateEmail } = require('../services/gemini');
+const { generateEmail, generateMasterTemplate, renderTemplateForLead } = require('../services/gemini');
 const { sendEmail, getDncList, addToDnc, getSendStats } = require('../services/mailer');
 
 const router = express.Router();
+
+// ── Generate master customizable outreach template ──────────────────────
+router.post('/template', async (req, res) => {
+  try {
+    const { query, category, city } = req.body;
+    if (!query && !category) {
+      return res.status(400).json({ error: 'Search term or category is required to generate an outreach template' });
+    }
+
+    console.log(`[email/template] Generating outreach template for "${category || query}" in "${city || 'area'}"...`);
+    const template = await generateMasterTemplate({ query, category, city });
+    res.json({ template });
+  } catch (err) {
+    console.error('[email/template] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Render template for a specific lead ─────────────────────────────────
+router.post('/render', (req, res) => {
+  try {
+    const { templateText, lead } = req.body;
+    if (!templateText || !lead) {
+      return res.status(400).json({ error: 'templateText and lead are required' });
+    }
+
+    const rendered = renderTemplateForLead(templateText, lead);
+    res.json({ rendered });
+  } catch (err) {
+    console.error('[email/render] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── Generate personalized emails for selected leads ─────────────────────
 router.post('/generate', async (req, res) => {
   try {
     const { leads, category, city } = req.body;
     if (!leads?.length) return res.status(400).json({ error: 'No leads provided' });
-    if (!category || !city) return res.status(400).json({ error: 'category and city are required for personalization' });
 
     console.log(`[email/generate] Generating emails for ${leads.length} leads...`);
 
-    // Generate in sequence to respect Gemini rate limits (free tier = 15 RPM)
     const drafts = [];
-    for (const lead of leads) {
+    for (let i = 0; i < leads.length; i++) {
+      const lead = leads[i];
       try {
         const { subject, body } = await generateEmail({
           businessName: lead.name,
-          category,
-          city,
+          category: category || lead.category || '',
+          city: city || lead.city || '',
         });
         drafts.push({ ...lead, subject, body, status: 'draft' });
       } catch (err) {
         console.error(`[email/generate] Failed for ${lead.name}:`, err.message);
         drafts.push({ ...lead, subject: '', body: '', status: 'generation_failed', error: err.message });
+      }
+
+      // Small 500ms breather between requests to prevent hitting Gemini 15 RPM limit
+      if (i < leads.length - 1) {
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
 

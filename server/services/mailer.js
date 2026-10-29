@@ -58,14 +58,16 @@ function isOnDnc(email) {
 
 // ── Gmail transport ─────────────────────────────────────────────────────
 function createTransport() {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    throw new Error('GMAIL_USER and GMAIL_APP_PASSWORD must be set in .env');
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass || pass === 'your_16_char_app_password') {
+    throw new Error('GMAIL_USER and a valid GMAIL_APP_PASSWORD must be set in server/.env to send emails.');
   }
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
+      user,
+      pass,
     },
   });
 }

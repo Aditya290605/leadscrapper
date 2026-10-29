@@ -1,5 +1,5 @@
-// POST /api/export/xlsx  — styled Excel export
-// POST /api/export/csv   — plain CSV of emails + phones
+// POST /api/export/xlsx  — styled Excel export with all business details & links
+// POST /api/export/csv   — complete CSV export
 const express = require('express');
 const ExcelJS = require('exceljs');
 
@@ -13,51 +13,75 @@ router.post('/xlsx', async (req, res) => {
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'LeadScrapper';
-    const ws = wb.addWorksheet('Leads');
+    const ws = wb.addWorksheet('Businesses Without Websites');
 
-    // Columns with widths
+    // Columns with proper widths
     ws.columns = [
-      { header: 'Business Name', key: 'name', width: 32 },
-      { header: 'Phone', key: 'phone', width: 20 },
-      { header: 'Address', key: 'address', width: 40 },
-      { header: 'Rating', key: 'rating', width: 10 },
-      { header: 'Reviews', key: 'reviews', width: 10 },
-      { header: 'Email', key: 'email', width: 28 },
+      { header: 'Business Name', key: 'name', width: 34 },
+      { header: 'Phone Number', key: 'phone', width: 20 },
+      { header: 'WhatsApp Link', key: 'whatsappUrl', width: 22 },
+      { header: 'Email Address', key: 'email', width: 28 },
+      { header: 'Avg Rating', key: 'rating', width: 12 },
+      { header: 'Review Count', key: 'reviews', width: 14 },
+      { header: 'Address', key: 'address', width: 44 },
+      { header: 'Google Maps Link', key: 'mapsUrl', width: 24 },
+      { header: 'Instagram Search', key: 'instagramSearchUrl', width: 24 },
     ];
 
     // Header row styling
     const headerRow = ws.getRow(1);
-    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF667EEA' } };
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11, name: 'Segoe UI' };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } }; // Matching green brand
     headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-    headerRow.height = 28;
+    headerRow.height = 30;
 
     // Data rows
     leads.forEach((lead) => {
       ws.addRow({
-        name: lead.name,
-        phone: lead.phone,
-        address: lead.address,
-        rating: lead.rating ?? '—',
-        reviews: lead.reviews ?? 0,
+        name: lead.name || 'Unnamed Business',
+        phone: lead.phone || '',
+        whatsappUrl: lead.whatsappUrl || '',
         email: lead.email || '',
+        rating: lead.rating !== null && lead.rating !== undefined ? Number(lead.rating) : '—',
+        reviews: lead.reviews ?? 0,
+        address: lead.address || '',
+        mapsUrl: lead.mapsUrl || '',
+        instagramSearchUrl: lead.instagramSearchUrl || '',
       });
     });
 
-    // Alternate row shading
-    ws.eachRow((row, i) => {
-      if (i > 1 && i % 2 === 0) {
-        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5FF' } };
-      }
-      row.alignment = { vertical: 'middle', wrapText: true };
-    });
+    // Formatting & Alternating row colors
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        if (rowNumber % 2 === 0) {
+          row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+        }
+        row.alignment = { vertical: 'middle', wrapText: true };
+        row.height = 24;
 
-    // Borders
-    ws.eachRow((row) => {
+        // Make URLs clickable links
+        const makeHyperlink = (colKey, labelText) => {
+          const cell = row.getCell(colKey);
+          if (cell.value && typeof cell.value === 'string' && cell.value.startsWith('http')) {
+            cell.value = {
+              text: labelText,
+              hyperlink: cell.value,
+              tooltip: cell.value,
+            };
+            cell.font = { color: { argb: 'FF2563EB' }, underline: true };
+          }
+        };
+
+        makeHyperlink('whatsappUrl', 'Open WhatsApp');
+        makeHyperlink('mapsUrl', 'View on Maps');
+        makeHyperlink('instagramSearchUrl', 'Find on Insta');
+      }
+
+      // Thin borders
       row.eachCell((cell) => {
         cell.border = {
-          top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
-          bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
         };
       });
     });
@@ -73,18 +97,35 @@ router.post('/xlsx', async (req, res) => {
   }
 });
 
-// ── CSV export (emails + phones only) ───────────────────────────────────
+// ── CSV export with all lead details ────────────────────────────────────
 router.post('/csv', (req, res) => {
   try {
     const { leads } = req.body;
     if (!leads?.length) return res.status(400).json({ error: 'No leads to export' });
 
-    const header = 'Business Name,Phone,Email';
-    const rows = leads.map(
-      (l) => `"${(l.name || '').replace(/"/g, '""')}","${l.phone || ''}","${l.email || ''}"`
-    );
+    const escapeCsv = (val) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
 
-    res.setHeader('Content-Type', 'text/csv');
+    const header = ['Business Name', 'Phone', 'WhatsApp Link', 'Email', 'Avg Rating', 'Reviews', 'Address', 'Google Maps Link', 'Instagram Search']
+      .map(escapeCsv)
+      .join(',');
+
+    const rows = leads.map((l) => [
+      escapeCsv(l.name || ''),
+      escapeCsv(l.phone || ''),
+      escapeCsv(l.whatsappUrl || ''),
+      escapeCsv(l.email || ''),
+      escapeCsv(l.rating ?? ''),
+      escapeCsv(l.reviews ?? 0),
+      escapeCsv(l.address || ''),
+      escapeCsv(l.mapsUrl || ''),
+      escapeCsv(l.instagramSearchUrl || ''),
+    ].join(','));
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=leads.csv');
     res.send([header, ...rows].join('\n'));
   } catch (err) {
