@@ -44,6 +44,18 @@ async function runSelfChecks() {
     '10-digit number should prepend 91 country code'
   );
 
+  assert.strictEqual(
+    formatWhatsAppLink('085917 22823'),
+    'https://wa.me/918591722823',
+    'Number with leading zero (STD/trunk prefix) should strip zero and add 91'
+  );
+
+  assert.strictEqual(
+    formatWhatsAppLink('+91 088286 09966'),
+    'https://wa.me/918828609966',
+    'Number with +91 0 should strip the 0 after country code'
+  );
+
   // 3. filterNoWebsite checks
   const mockPlaces = [
     {

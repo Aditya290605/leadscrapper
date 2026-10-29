@@ -3,7 +3,7 @@
 
 const PLACES_API_BASE = 'https://places.googleapis.com/v1';
 
-// Request these fields from Text Search so we skip separate Detail calls (saves API cost)
+// Request these fields from Text Search including nextPageToken for pagination
 const FIELD_MASK = [
   'places.id',
   'places.displayName',
@@ -14,6 +14,7 @@ const FIELD_MASK = [
   'places.userRatingCount',
   'places.websiteUri',
   'places.googleMapsUri',
+  'nextPageToken',
 ].join(',');
 
 // Simple in-memory cache to save API quota on repeated searches
@@ -75,14 +76,38 @@ function buildSearchQuery(query, category, location) {
 }
 
 /**
- * Clean phone number to digits only for WhatsApp links.
+ * Clean phone number to valid international digits for WhatsApp links.
+ * Properly handles Indian national format (085917..., +91..., 022...).
  */
 function formatWhatsAppLink(phone) {
   if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
-  if (!digits || digits.length < 10) return '';
-  const finalDigits = digits.length === 10 ? `91${digits}` : digits;
-  return `https://wa.me/${finalDigits}`;
+  let digits = phone.replace(/\D/g, '');
+  if (!digits || digits.length < 8) return '';
+
+  // Handle +91 0... (trunk prefix after country code)
+  if (digits.startsWith('910')) {
+    digits = '91' + digits.slice(3);
+  }
+
+  // Strip leading zeros (e.g. 08591722823 -> 8591722823)
+  digits = digits.replace(/^0+/, '');
+
+  // 10-digit Indian mobile/local number -> prepend 91
+  if (digits.length === 10) {
+    return `https://wa.me/91${digits}`;
+  }
+
+  // Already 12 digits starting with 91
+  if (digits.startsWith('91') && digits.length === 12) {
+    return `https://wa.me/${digits}`;
+  }
+
+  // If longer than 10 digits and not starting with 91, take last 10 digits
+  if (digits.length > 10 && !digits.startsWith('91')) {
+    return `https://wa.me/91${digits.slice(-10)}`;
+  }
+
+  return `https://wa.me/${digits.startsWith('91') ? digits : '91' + digits}`;
 }
 
 /**
@@ -145,9 +170,12 @@ async function searchBusinesses(textQuery, maxPages = 5, bypassCache = false) {
     }
 
     pageToken = data.nextPageToken;
-    if (!pageToken) break;
+    if (!pageToken) {
+      console.log(`[places] No more pages available. Total fetched: ${results.length}`);
+      break;
+    }
 
-    // Small delay between page requests to avoid burst rate limits
+    // Small delay between page requests to allow token activation
     await new Promise((r) => setTimeout(r, 1000));
   }
 
