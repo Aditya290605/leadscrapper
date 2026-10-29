@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Table2, MessageSquare, Gauge, ArrowRight } from 'lucide-react';
+import { Search, Table2, MessageSquare, Activity, MapPin, ChevronRight, ExternalLink } from 'lucide-react';
 import SearchForm from './components/SearchForm';
 import ResultsTable from './components/ResultsTable';
 import OutreachTemplates from './components/OutreachTemplates';
@@ -21,83 +21,106 @@ export default function App() {
   };
 
   return (
-    <div className="app-shell">
-      {/* ── Top Navigation Bar ────────────────────────────────────────── */}
-      <header className="app-navbar">
-        <div className="nav-brand">
-          <div className="brand-badge">LS</div>
-          <div className="brand-text">
-            <span className="brand-title">LeadScrapper</span>
-            <span className="brand-version">v1.2</span>
+    <div className="layout-shell">
+      {/* ── Left Sidebar Navigation ─────────────────────────────────── */}
+      <aside className="layout-sidebar">
+        <div className="sidebar-top">
+          <div className="sidebar-brand">
+            <div className="brand-icon-box">
+              <MapPin size={18} className="brand-pin-icon" />
+            </div>
+            <div className="brand-details">
+              <span className="brand-name">LeadScrapper</span>
+              <span className="brand-subtitle">Maps Lead Engine</span>
+            </div>
           </div>
+
+          <nav className="sidebar-nav">
+            <div className="nav-group-label">WORKSPACE</div>
+
+            <button
+              type="button"
+              className={`sidebar-nav-btn ${tab === 'search' ? 'active' : ''}`}
+              onClick={() => setTab('search')}
+            >
+              <Search size={16} />
+              <span>Find Leads</span>
+            </button>
+
+            <button
+              type="button"
+              className={`sidebar-nav-btn ${tab === 'results' ? 'active' : ''}`}
+              onClick={() => setTab('results')}
+              disabled={leads.length === 0}
+            >
+              <Table2 size={16} />
+              <span>Leads Table</span>
+              {leads.length > 0 && <span className="sidebar-count-pill">{leads.length}</span>}
+            </button>
+
+            <button
+              type="button"
+              className={`sidebar-nav-btn ${tab === 'templates' ? 'active' : ''}`}
+              onClick={() => setTab('templates')}
+            >
+              <MessageSquare size={16} />
+              <span>Outreach Copy</span>
+            </button>
+
+            <div className="nav-group-label" style={{ marginTop: '16px' }}>SYSTEM</div>
+
+            <button
+              type="button"
+              className={`sidebar-nav-btn ${tab === 'quota' ? 'active' : ''}`}
+              onClick={() => setTab('quota')}
+            >
+              <Activity size={16} />
+              <span>API Quota</span>
+            </button>
+          </nav>
         </div>
 
-        <nav className="nav-menu">
-          <button
-            type="button"
-            className={`nav-btn ${tab === 'search' ? 'nav-active' : ''}`}
-            onClick={() => setTab('search')}
-          >
-            <Search size={14} />
-            <span>Search</span>
-          </button>
+        {/* Sidebar Footer Info */}
+        <div className="sidebar-footer">
+          {meta.query && (
+            <div className="sidebar-active-query">
+              <span className="query-caption">Active Target</span>
+              <span className="query-value" title={meta.query}>&ldquo;{meta.query}&rdquo;</span>
+              <span className="query-stats">{leads.length} leads loaded</span>
+            </div>
+          )}
+          <div className="sidebar-credit">
+            <span>Client Acquisition Suite</span>
+          </div>
+        </div>
+      </aside>
 
-          <button
-            type="button"
-            className={`nav-btn ${tab === 'results' ? 'nav-active' : ''}`}
-            onClick={() => setTab('results')}
-            disabled={leads.length === 0}
-            title={leads.length === 0 ? 'Run a search first to view leads' : 'View scraped leads table'}
-          >
-            <Table2 size={14} />
-            <span>Leads Table</span>
-            {leads.length > 0 && <span className="tab-pill">{leads.length}</span>}
-          </button>
+      {/* ── Main View Area ───────────────────────────────────────────── */}
+      <main className="layout-content">
+        <div className="content-inner">
+          {tab === 'search' && <SearchForm onResults={handleSearchResults} />}
 
-          <button
-            type="button"
-            className={`nav-btn ${tab === 'templates' ? 'nav-active' : ''}`}
-            onClick={() => setTab('templates')}
-          >
-            <MessageSquare size={14} />
-            <span>Outreach Copy</span>
-          </button>
+          {tab === 'results' && (
+            <ResultsTable
+              leads={leads}
+              total={meta.total}
+              filtered={meta.filtered}
+              query={meta.query}
+              onLeadsUpdate={setLeads}
+              onOpenTemplate={handleOpenTemplate}
+            />
+          )}
 
-          <button
-            type="button"
-            className={`nav-btn ${tab === 'quota' ? 'nav-active' : ''}`}
-            onClick={() => setTab('quota')}
-          >
-            <Gauge size={14} />
-            <span>API Quota</span>
-          </button>
-        </nav>
-      </header>
+          {tab === 'templates' && (
+            <OutreachTemplates
+              query={meta.query || 'Local Businesses'}
+              leads={leads}
+              onBack={() => setTab('results')}
+            />
+          )}
 
-      {/* ── Main View Router ─────────────────────────────────────────── */}
-      <main className="app-viewport">
-        {tab === 'search' && <SearchForm onResults={handleSearchResults} />}
-
-        {tab === 'results' && (
-          <ResultsTable
-            leads={leads}
-            total={meta.total}
-            filtered={meta.filtered}
-            query={meta.query}
-            onLeadsUpdate={setLeads}
-            onOpenTemplate={handleOpenTemplate}
-          />
-        )}
-
-        {tab === 'templates' && (
-          <OutreachTemplates
-            query={meta.query || 'Local Businesses'}
-            leads={leads}
-            onBack={() => setTab('results')}
-          />
-        )}
-
-        {tab === 'quota' && <QuotaMonitor />}
+          {tab === 'quota' && <QuotaMonitor />}
+        </div>
       </main>
     </div>
   );

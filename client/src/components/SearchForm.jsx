@@ -1,13 +1,22 @@
-import { useState } from 'react';
-import { Search, MapPin, SlidersHorizontal, AlertCircle, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, SlidersHorizontal, AlertCircle, ArrowRight, Sparkles } from 'lucide-react';
+
+const ANIMATED_PROMPTS = [
+  'turf in mumbai',
+  'gym in thane',
+  'dental clinic in andheri',
+  'coaching classes in pune',
+  'salons in bandra',
+  'sports club in bangalore',
+  'physiotherapy clinic in delhi',
+];
 
 const POPULAR_QUERIES = [
   'turf in mumbai',
   'gym in thane',
   'dental clinic in andheri',
-  'coaching classes in dadar',
+  'coaching classes in pune',
   'salons in bandra',
-  'sports club in pune',
 ];
 
 export default function SearchForm({ onResults }) {
@@ -15,6 +24,61 @@ export default function SearchForm({ onResults }) {
   const [maxPages, setMaxPages] = useState('3');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+
+  // ── Auto-typing dynamic placeholder animation ─────────────────────────
+  const [animatedText, setAnimatedText] = useState('');
+  const stateRef = useRef({
+    promptIndex: 0,
+    charIndex: 0,
+    isDeleting: false,
+  });
+
+  useEffect(() => {
+    // If the user is actively typing or input is focused with text, pause typing
+    if (query) return;
+
+    let timeout;
+    const typeSpeed = 55;
+    const deleteSpeed = 28;
+    const holdPromptTime = 2000;
+    const pauseBeforeNext = 300;
+
+    const tick = () => {
+      const { promptIndex, charIndex, isDeleting } = stateRef.current;
+      const currentPrompt = ANIMATED_PROMPTS[promptIndex % ANIMATED_PROMPTS.length];
+
+      if (!isDeleting) {
+        // Typing forward
+        if (charIndex < currentPrompt.length) {
+          stateRef.current.charIndex += 1;
+          setAnimatedText(currentPrompt.slice(0, stateRef.current.charIndex));
+          timeout = setTimeout(tick, typeSpeed);
+        } else {
+          // Finished typing word, hold
+          timeout = setTimeout(() => {
+            stateRef.current.isDeleting = true;
+            tick();
+          }, holdPromptTime);
+        }
+      } else {
+        // Deleting backward
+        if (charIndex > 0) {
+          stateRef.current.charIndex -= 1;
+          setAnimatedText(currentPrompt.slice(0, stateRef.current.charIndex));
+          timeout = setTimeout(tick, deleteSpeed);
+        } else {
+          // Finished deleting, move to next prompt
+          stateRef.current.isDeleting = false;
+          stateRef.current.promptIndex = (promptIndex + 1) % ANIMATED_PROMPTS.length;
+          timeout = setTimeout(tick, pauseBeforeNext);
+        }
+      }
+    };
+
+    timeout = setTimeout(tick, 300);
+    return () => clearTimeout(timeout);
+  }, [query]);
 
   const handleSearch = async (e, customQuery = null) => {
     if (e) e.preventDefault();
@@ -55,56 +119,73 @@ export default function SearchForm({ onResults }) {
     handleSearch(null, q);
   };
 
+  const placeholderDisplay = isFocused && !query
+    ? 'Type a category and city (e.g. gym in thane)...'
+    : `Try "${animatedText}"`;
+
   return (
-    <div className="search-container">
-      <div className="search-header">
-        <div className="badge-pill">Local Business Lead Discovery</div>
-        <h1>Find businesses without websites</h1>
-        <p className="search-subtitle">
-          Scrapes Google Maps for local shops and services, filters out those who already have a website, and extracts phone numbers, ratings, and addresses.
+    <div className="search-section">
+      <div className="search-banner">
+        <div className="soft-tag">
+          <span className="soft-tag-dot" />
+          <span>Google Maps Discovery</span>
+        </div>
+        <h2>Find Local Businesses Without Websites</h2>
+        <p className="search-banner-sub">
+          Scrapes businesses on Google Maps, automatically filters out any that already have a web domain, and delivers phone numbers and ratings ready for outreach.
         </p>
       </div>
 
-      <div className="search-card">
-        <form onSubmit={handleSearch} className="search-input-box">
-          <div className="search-input-field">
-            <Search className="field-icon" size={18} />
+      <div className="search-main-card">
+        <form onSubmit={handleSearch} className="search-form-layout">
+          <div className={`search-bar-wrap ${isFocused ? 'focused' : ''}`}>
+            <Search className="search-bar-icon" size={18} />
             <input
               type="text"
-              placeholder='e.g. "turf in mumbai", "gym in thane", "dentist in pune"'
+              className="search-main-input"
+              placeholder={placeholderDisplay}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
               disabled={loading}
               autoFocus
             />
+            {!query && !isFocused && (
+              <span className="blinking-typing-cursor" aria-hidden="true" />
+            )}
           </div>
 
-          <div className="search-controls">
-            <div className="pages-select-wrap">
-              <SlidersHorizontal size={14} />
+          <div className="search-bar-actions">
+            <div className="select-depth-box">
+              <label htmlFor="maxPages">Scan Volume:</label>
               <select
+                id="maxPages"
                 value={maxPages}
                 onChange={(e) => setMaxPages(e.target.value)}
                 disabled={loading}
-                title="Max pages to scrape (20 leads per page)"
               >
-                <option value="1">~20 results (1 page)</option>
-                <option value="3">~60 results (3 pages)</option>
-                <option value="5">~100 results (5 pages)</option>
-                <option value="10">~200 results (10 pages)</option>
+                <option value="1">~20 leads</option>
+                <option value="3">~60 leads</option>
+                <option value="5">~100 leads</option>
+                <option value="10">~200 leads</option>
               </select>
             </div>
 
-            <button type="submit" className="btn-search-submit" disabled={loading || !query.trim()}>
+            <button
+              type="submit"
+              className="btn-search-execute"
+              disabled={loading || !query.trim()}
+            >
               {loading ? (
                 <>
-                  <span className="spinner-dots" />
-                  <span>Searching Maps...</span>
+                  <span className="btn-spinner" />
+                  <span>Scanning Maps...</span>
                 </>
               ) : (
                 <>
-                  <span>Find Leads</span>
-                  <CornerDownLeft size={14} />
+                  <span>Search Businesses</span>
+                  <ArrowRight size={15} />
                 </>
               )}
             </button>
@@ -112,20 +193,20 @@ export default function SearchForm({ onResults }) {
         </form>
 
         {error && (
-          <div className="alert-banner alert-error">
+          <div className="ui-alert ui-alert-error">
             <AlertCircle size={16} />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="search-chips-row">
-          <span className="chips-label">Quick search:</span>
-          <div className="chips-list">
+        <div className="quick-suggestions-row">
+          <span className="suggestions-title">Popular searches:</span>
+          <div className="suggestions-chips">
             {POPULAR_QUERIES.map((q) => (
               <button
                 key={q}
                 type="button"
-                className="chip-btn"
+                className="chip-tag"
                 onClick={() => handleChipClick(q)}
                 disabled={loading}
               >
@@ -133,24 +214,6 @@ export default function SearchForm({ onResults }) {
               </button>
             ))}
           </div>
-        </div>
-      </div>
-
-      <div className="search-features-grid">
-        <div className="feature-item">
-          <div className="feature-num">01</div>
-          <div className="feature-title">Website Filter</div>
-          <div className="feature-desc">Instantly discards businesses that already have a web domain so you only pitch high-probability clients.</div>
-        </div>
-        <div className="feature-item">
-          <div className="feature-num">02</div>
-          <div className="feature-title">Phone & WhatsApp Ready</div>
-          <div className="feature-desc">Extracts verified contact numbers with 1-click WhatsApp chat links ready for immediate outreach.</div>
-        </div>
-        <div className="feature-item">
-          <div className="feature-num">03</div>
-          <div className="feature-title">Quota Protected</div>
-          <div className="feature-desc">Automatic in-memory caching saves Google Places API costs by eliminating duplicate search charges.</div>
         </div>
       </div>
     </div>
