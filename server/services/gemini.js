@@ -1,49 +1,143 @@
-// Gemini API — generate personalized cold outreach emails
+// Gemini API — personalized cold outreach and outreach template generation
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 let genAI = null;
 
 function getModel() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+    throw new Error('GEMINI_API_KEY is not configured in server/.env. Please add a valid Gemini API key.');
+  }
+
   if (!genAI) {
-    if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set in .env');
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    genAI = new GoogleGenerativeAI(apiKey);
   }
   return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 }
 
 /**
- * Generate a personalized cold email for a single lead.
- * Returns { subject, body } — plain text body (HTML wrapping is done by mailer).
+ * Clean and parse JSON from model response text
+ */
+function cleanJsonOutput(text) {
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+  }
+  return JSON.parse(cleaned);
+}
+
+/**
+ * Generate a personalized cold email for a single lead in ONE single prompt.
+ * Returns { subject, body }
  */
 async function generateEmail({ businessName, category, city }) {
   const senderName = process.env.SENDER_NAME || 'Your Name';
   const studio = process.env.SENDER_STUDIO || 'Your Studio';
   const model = getModel();
 
-  const prompt = `You are writing a professional cold outreach email.
+  const prompt = `You are an expert copywriter crafting a cold outreach email.
 
-FROM: ${senderName} at ${studio} (a freelance studio offering website development, app development, and business automation services)
-TO: ${businessName}, a ${category} business in ${city} that currently has NO website.
+SENDER: ${senderName} at ${studio} (a digital agency specializing in website design, mobile apps, and booking automations)
+RECIPIENT: ${businessName}, a ${category || 'local'} business in ${city || 'the area'} that currently has NO website.
 
-Write ONLY the email body (3 short paragraphs, under 120 words total):
-- Paragraph 1: Notice they don't have a website and mention how competitors in ${city} are using websites to attract more customers.
-- Paragraph 2: Briefly pitch how a modern website + optional automation (online booking, WhatsApp integration, Google reviews) could help their specific type of business.
-- Paragraph 3: Soft CTA — suggest a quick 10-minute call, no pressure.
+Generate a JSON object with:
+1. "subject": A short, intriguing subject line under 7 words. No spam words, no emojis, no quotes.
+2. "body": An email body (3 short paragraphs, under 120 words total, plain text only with no greeting or signature lines):
+   - Para 1: Compliment the business and note that customers in ${city || 'their area'} searching on Google can't find their official site.
+   - Para 2: Briefly explain how a modern website with WhatsApp/online booking helps their specific business model.
+   - Para 3: Low-pressure call to action (e.g. "Open to a quick 5-min demo?").
 
-Rules:
-- Warm and conversational tone, NOT salesy or pushy
-- Do NOT include a subject line, greeting (Hi/Dear), or sign-off/signature
-- Do NOT use markdown formatting — plain text only
-- Be specific to their business type, not generic`;
+Respond ONLY with valid JSON in this exact structure:
+{
+  "subject": "...",
+  "body": "..."
+}`;
 
-  const bodyResult = await model.generateContent(prompt);
-  const body = bodyResult.response.text().trim();
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.7,
+      responseMimeType: 'application/json',
+    },
+  });
 
-  const subjectPrompt = `Write ONE short email subject line (under 8 words) for a cold outreach to "${businessName}", a ${category} in ${city}, about building them a website. No quotes, no emojis, no punctuation at the end. Just the subject line text.`;
-  const subjectResult = await model.generateContent(subjectPrompt);
-  const subject = subjectResult.response.text().trim();
-
-  return { subject, body };
+  const responseText = result.response.text();
+  try {
+    const parsed = cleanJsonOutput(responseText);
+    return {
+      subject: (parsed.subject || '').trim(),
+      body: (parsed.body || '').trim(),
+    };
+  } catch (err) {
+    console.warn('[gemini] JSON parse failed, returning raw response:', err.message);
+    return {
+      subject: `Website for ${businessName}`,
+      body: responseText.trim(),
+    };
+  }
 }
 
-module.exports = { generateEmail };
+/**
+ * Generate a master customizable outreach template based on the search query.
+ * Produces email template, WhatsApp copy, and specific talking points in 1 API call.
+ */
+async function generateMasterTemplate({ query, category, city }) {
+  const senderName = process.env.SENDER_NAME || 'Your Name';
+  const studio = process.env.SENDER_STUDIO || 'Your Studio';
+  const model = getModel();
+
+  const niche = category || query || 'Local Business';
+  const location = city || 'your city';
+
+  const prompt = `You are a cold outreach and lead conversion specialist.
+Create a versatile outreach master template for pitching website design, Google presence, and WhatsApp/online booking systems to ${niche} in ${location} who currently have no website.
+
+Include placeholders like {{business_name}}, {{city}}, {{owner_name}}, {{sender_name}}, and {{sender_phone}} so the user can easily customize and copy-paste.
+
+Respond ONLY with valid JSON matching this schema:
+{
+  "subjectOptions": [
+    "Subject line 1",
+    "Subject line 2",
+    "Subject line 3"
+  ],
+  "emailTemplate": "Full email body template with {{business_name}} and {{city}} placeholders (3 punchy paragraphs with conversational tone)",
+  "whatsappTemplate": "Short, friendly WhatsApp message (under 60 words) suitable for direct messaging to business owners",
+  "talkingPoints": [
+    "Industry-specific pain point 1 (e.g. lost bookings, missed calls)",
+    "Industry-specific benefit 2 (e.g. WhatsApp automated orders/slots)",
+    "Industry-specific benefit 3 (e.g. showing up ahead of local competitors on Google)"
+  ]
+}`;
+
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.7,
+      responseMimeType: 'application/json',
+    },
+  });
+
+  const responseText = result.response.text();
+  try {
+    const parsed = cleanJsonOutput(responseText);
+    return {
+      subjectOptions: parsed.subjectOptions || [],
+      emailTemplate: (parsed.emailTemplate || '').trim(),
+      whatsappTemplate: (parsed.whatsappTemplate || '').trim(),
+      talkingPoints: parsed.talkingPoints || [],
+      senderName,
+      studioName: studio,
+    };
+  } catch (err) {
+    console.error('[gemini] Failed to parse template JSON:', err.message);
+    throw new Error('Failed to generate template from AI response');
+  }
+}
+
+module.exports = {
+  generateEmail,
+  generateMasterTemplate,
+};
