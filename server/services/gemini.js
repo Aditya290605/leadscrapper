@@ -2,6 +2,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 let genAI = null;
+const geminiStats = { totalCalls: 0, templatesGenerated: 0 };
 
 function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -13,6 +14,19 @@ function getModel() {
     genAI = new GoogleGenerativeAI(apiKey);
   }
   return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+}
+
+function getGeminiStats() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const configured = !!apiKey && apiKey !== 'your_gemini_api_key_here';
+  return {
+    configured,
+    model: 'gemini-2.0-flash',
+    totalCalls: geminiStats.totalCalls,
+    templatesGenerated: geminiStats.templatesGenerated,
+    rateLimitRpm: 15,
+    dailyLimitTokens: '1,000,000 tokens/day (Free tier)',
+  };
 }
 
 /**
@@ -98,6 +112,7 @@ async function generateEmail({ businessName, category, city }) {
     };
   }
 
+  geminiStats.totalCalls++;
   const prompt = `You are an expert copywriter crafting a cold outreach email.
 
 SENDER: ${senderName} at ${studio} (a studio specializing in website design, mobile apps, and booking automations)
@@ -156,6 +171,9 @@ async function generateMasterTemplate({ query, category, city }) {
     console.log('[gemini] GEMINI_API_KEY is not configured. Serving intelligent fallback template.');
     return getFallbackTemplate({ niche, location, senderName, studioName, senderPhone });
   }
+
+  geminiStats.totalCalls++;
+  geminiStats.templatesGenerated++;
 
   const prompt = `You are a cold outreach and lead generation specialist.
 Create a versatile outreach master template for pitching website design, Google presence, and WhatsApp/online booking systems to "${niche}" in "${location}" who currently have NO website.
@@ -240,4 +258,5 @@ module.exports = {
   generateEmail,
   generateMasterTemplate,
   renderTemplateForLead,
+  getGeminiStats,
 };

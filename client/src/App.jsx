@@ -1,66 +1,81 @@
 import { useState } from 'react';
-import { Search, Table2, Mail, Zap } from 'lucide-react';
+import { Search, Table2, MessageSquare, Gauge, ArrowRight } from 'lucide-react';
 import SearchForm from './components/SearchForm';
 import ResultsTable from './components/ResultsTable';
-import EmailPreview from './components/EmailPreview';
-
-const TABS = [
-  { key: 'search', label: 'Search', icon: Search },
-  { key: 'results', label: 'Results', icon: Table2 },
-  { key: 'email', label: 'Outreach', icon: Mail },
-];
+import OutreachTemplates from './components/OutreachTemplates';
+import QuotaMonitor from './components/QuotaMonitor';
 
 export default function App() {
   const [tab, setTab] = useState('search');
   const [leads, setLeads] = useState([]);
-  const [meta, setMeta] = useState({ total: 0, filtered: 0, category: '', city: '' });
-  const [emailLeads, setEmailLeads] = useState([]);
+  const [meta, setMeta] = useState({ total: 0, filtered: 0, query: '' });
 
-  const handleSearchResults = ({ leads, total, filtered, category, city }) => {
+  const handleSearchResults = ({ leads, total, filtered, query }) => {
     setLeads(leads);
-    setMeta({ total, filtered, category, city });
+    setMeta({ total, filtered, query });
     setTab('results');
   };
 
-  const handleProceedToEmail = (selectedWithEmail) => {
-    setEmailLeads(selectedWithEmail);
-    setTab('email');
+  const handleOpenTemplate = ({ query }) => {
+    setTab('templates');
   };
 
   return (
-    <div className="app">
-      {/* ── Top Bar ──────────────────────────────────────────── */}
-      <header className="topbar">
-        <div className="topbar-brand">
-          <div className="topbar-logo">
-            <Zap size={18} />
-          </div>
-          <div>
-            <div className="topbar-title">LeadScrapper</div>
-            <div className="topbar-subtitle">Find · Export · Outreach</div>
+    <div className="app-shell">
+      {/* ── Top Navigation Bar ────────────────────────────────────────── */}
+      <header className="app-navbar">
+        <div className="nav-brand">
+          <div className="brand-badge">LS</div>
+          <div className="brand-text">
+            <span className="brand-title">LeadScrapper</span>
+            <span className="brand-version">v1.2</span>
           </div>
         </div>
 
-        <nav className="nav-tabs">
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              className={`nav-tab ${tab === key ? 'active' : ''}`}
-              onClick={() => setTab(key)}
-              disabled={
-                (key === 'results' && leads.length === 0) ||
-                (key === 'email' && emailLeads.length === 0)
-              }
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
+        <nav className="nav-menu">
+          <button
+            type="button"
+            className={`nav-btn ${tab === 'search' ? 'nav-active' : ''}`}
+            onClick={() => setTab('search')}
+          >
+            <Search size={14} />
+            <span>Search</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-btn ${tab === 'results' ? 'nav-active' : ''}`}
+            onClick={() => setTab('results')}
+            disabled={leads.length === 0}
+            title={leads.length === 0 ? 'Run a search first to view leads' : 'View scraped leads table'}
+          >
+            <Table2 size={14} />
+            <span>Leads Table</span>
+            {leads.length > 0 && <span className="tab-pill">{leads.length}</span>}
+          </button>
+
+          <button
+            type="button"
+            className={`nav-btn ${tab === 'templates' ? 'nav-active' : ''}`}
+            onClick={() => setTab('templates')}
+          >
+            <MessageSquare size={14} />
+            <span>Outreach Copy</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-btn ${tab === 'quota' ? 'nav-active' : ''}`}
+            onClick={() => setTab('quota')}
+          >
+            <Gauge size={14} />
+            <span>API Quota</span>
+          </button>
         </nav>
       </header>
 
-      {/* ── Content ──────────────────────────────────────────── */}
-      <main className="main-content">
+      {/* ── Main View Router ─────────────────────────────────────────── */}
+      <main className="app-viewport">
         {tab === 'search' && <SearchForm onResults={handleSearchResults} />}
 
         {tab === 'results' && (
@@ -68,19 +83,21 @@ export default function App() {
             leads={leads}
             total={meta.total}
             filtered={meta.filtered}
+            query={meta.query}
             onLeadsUpdate={setLeads}
-            onProceedToEmail={handleProceedToEmail}
+            onOpenTemplate={handleOpenTemplate}
           />
         )}
 
-        {tab === 'email' && (
-          <EmailPreview
-            leads={emailLeads}
-            category={meta.category}
-            city={meta.city}
+        {tab === 'templates' && (
+          <OutreachTemplates
+            query={meta.query || 'Local Businesses'}
+            leads={leads}
             onBack={() => setTab('results')}
           />
         )}
+
+        {tab === 'quota' && <QuotaMonitor />}
       </main>
     </div>
   );

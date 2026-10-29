@@ -22,6 +22,8 @@ const searchCache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 50;
 
+const placesStats = { liveCalls: 0, cacheHits: 0 };
+
 function getCached(key) {
   const entry = searchCache.get(key);
   if (!entry) return null;
@@ -38,6 +40,19 @@ function setCache(key, data) {
     searchCache.delete(firstKey);
   }
   searchCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+function getPlacesStats() {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const configured = !!apiKey && apiKey !== 'your_places_api_key_here';
+  return {
+    configured,
+    liveCalls: placesStats.liveCalls,
+    cacheHits: placesStats.cacheHits,
+    cachedQueries: searchCache.size,
+    freeTierMonthlyCredit: '$200.00 / month (~90-100 searches)',
+    costPerRequest: '~$0.035 / Text Search page',
+  };
 }
 
 /**
@@ -66,7 +81,6 @@ function formatWhatsAppLink(phone) {
   if (!phone) return '';
   const digits = phone.replace(/\D/g, '');
   if (!digits || digits.length < 10) return '';
-  // Default to 91 country code if standard 10-digit Indian mobile
   const finalDigits = digits.length === 10 ? `91${digits}` : digits;
   return `https://wa.me/${finalDigits}`;
 }
@@ -91,6 +105,7 @@ async function searchBusinesses(textQuery, maxPages = 5, bypassCache = false) {
   if (!bypassCache) {
     const cached = getCached(cacheKey);
     if (cached) {
+      placesStats.cacheHits++;
       console.log(`[places] Returning cached results for "${normalizedQuery}"`);
       return cached;
     }
@@ -103,6 +118,7 @@ async function searchBusinesses(textQuery, maxPages = 5, bypassCache = false) {
     const body = { textQuery, pageSize: 20 };
     if (pageToken) body.pageToken = pageToken;
 
+    placesStats.liveCalls++;
     const res = await fetch(`${PLACES_API_BASE}/places:searchText`, {
       method: 'POST',
       headers: {
@@ -163,7 +179,7 @@ function filterNoWebsite(places) {
         mapsUrl: p.googleMapsUri || '',
         whatsappUrl,
         instagramSearchUrl,
-        email: '', // Not provided by Google Places API — user can enter manually
+        email: '',
       };
     });
 }
@@ -173,4 +189,5 @@ module.exports = {
   filterNoWebsite,
   buildSearchQuery,
   formatWhatsAppLink,
+  getPlacesStats,
 };
