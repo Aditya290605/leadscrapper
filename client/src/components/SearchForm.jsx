@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { Search, MapPin, SlidersHorizontal, AlertCircle, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { Search, SlidersHorizontal, AlertCircle, ArrowRight } from 'lucide-react';
 
 const POPULAR_QUERIES = [
   'turf in mumbai',
   'gym in thane',
   'dental clinic in andheri',
-  'coaching classes in dadar',
+  'coaching classes in pune',
   'salons in bandra',
-  'sports club in pune',
 ];
 
 export default function SearchForm({ onResults }) {
@@ -56,22 +55,22 @@ export default function SearchForm({ onResults }) {
   };
 
   return (
-    <div className="search-container">
-      <div className="search-header">
-        <div className="badge-pill">Local Business Lead Discovery</div>
-        <h1>Find businesses without websites</h1>
-        <p className="search-subtitle">
-          Scrapes Google Maps for local shops and services, filters out those who already have a website, and extracts phone numbers, ratings, and addresses.
+    <div className="search-section">
+      <div className="search-banner">
+        <h2>Find Local Businesses Without Websites</h2>
+        <p className="search-banner-sub">
+          Searches Google Maps, filters out any business that already has a website, and extracts phone numbers, ratings, and addresses ready for outreach.
         </p>
       </div>
 
-      <div className="search-card">
-        <form onSubmit={handleSearch} className="search-input-box">
-          <div className="search-input-field">
-            <Search className="field-icon" size={18} />
+      <div className="search-main-card">
+        <form onSubmit={handleSearch} className="search-form-layout">
+          <div className="search-bar-wrap">
+            <Search className="search-bar-icon" size={18} />
             <input
               type="text"
-              placeholder='e.g. "turf in mumbai", "gym in thane", "dentist in pune"'
+              className="search-main-input"
+              placeholder='Try "turf in mumbai", "gym in thane", "dentist in pune"...'
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               disabled={loading}
@@ -79,32 +78,36 @@ export default function SearchForm({ onResults }) {
             />
           </div>
 
-          <div className="search-controls">
-            <div className="pages-select-wrap">
-              <SlidersHorizontal size={14} />
+          <div className="search-bar-actions">
+            <div className="select-depth-box">
+              <label htmlFor="maxPages">Volume:</label>
               <select
+                id="maxPages"
                 value={maxPages}
                 onChange={(e) => setMaxPages(e.target.value)}
                 disabled={loading}
-                title="Max pages to scrape (20 leads per page)"
               >
-                <option value="1">~20 results (1 page)</option>
-                <option value="3">~60 results (3 pages)</option>
-                <option value="5">~100 results (5 pages)</option>
-                <option value="10">~200 results (10 pages)</option>
+                <option value="1">~20 results</option>
+                <option value="3">~60 results</option>
+                <option value="5">~100 results</option>
+                <option value="10">~200 results</option>
               </select>
             </div>
 
-            <button type="submit" className="btn-search-submit" disabled={loading || !query.trim()}>
+            <button
+              type="submit"
+              className="btn-search-execute"
+              disabled={loading || !query.trim()}
+            >
               {loading ? (
                 <>
-                  <span className="spinner-dots" />
-                  <span>Searching Maps...</span>
+                  <span className="btn-spinner" />
+                  <span>Scanning Google Maps...</span>
                 </>
               ) : (
                 <>
-                  <span>Find Leads</span>
-                  <CornerDownLeft size={14} />
+                  <span>Search Businesses</span>
+                  <ArrowRight size={15} />
                 </>
               )}
             </button>
@@ -112,20 +115,20 @@ export default function SearchForm({ onResults }) {
         </form>
 
         {error && (
-          <div className="alert-banner alert-error">
+          <div className="ui-alert ui-alert-error">
             <AlertCircle size={16} />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="search-chips-row">
-          <span className="chips-label">Quick search:</span>
-          <div className="chips-list">
+        <div className="quick-suggestions-row">
+          <span className="suggestions-title">Common Searches:</span>
+          <div className="suggestions-chips">
             {POPULAR_QUERIES.map((q) => (
               <button
                 key={q}
                 type="button"
-                className="chip-btn"
+                className="chip-tag"
                 onClick={() => handleChipClick(q)}
                 disabled={loading}
               >
@@ -133,24 +136,6 @@ export default function SearchForm({ onResults }) {
               </button>
             ))}
           </div>
-        </div>
-      </div>
-
-      <div className="search-features-grid">
-        <div className="feature-item">
-          <div className="feature-num">01</div>
-          <div className="feature-title">Website Filter</div>
-          <div className="feature-desc">Instantly discards businesses that already have a web domain so you only pitch high-probability clients.</div>
-        </div>
-        <div className="feature-item">
-          <div className="feature-num">02</div>
-          <div className="feature-title">Phone & WhatsApp Ready</div>
-          <div className="feature-desc">Extracts verified contact numbers with 1-click WhatsApp chat links ready for immediate outreach.</div>
-        </div>
-        <div className="feature-item">
-          <div className="feature-num">03</div>
-          <div className="feature-title">Quota Protected</div>
-          <div className="feature-desc">Automatic in-memory caching saves Google Places API costs by eliminating duplicate search charges.</div>
         </div>
       </div>
     </div>

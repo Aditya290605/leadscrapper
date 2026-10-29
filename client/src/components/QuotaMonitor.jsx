@@ -5,9 +5,7 @@ import {
   AlertTriangle,
   Zap,
   Mail,
-  Shield,
   ExternalLink,
-  Layers,
   Database,
   Info,
 } from 'lucide-react';
@@ -37,244 +35,212 @@ export default function QuotaMonitor() {
   }, []);
 
   return (
-    <div className="quota-container">
-      <div className="quota-header">
+    <div className="quota-section">
+      <div className="quota-topbar">
         <div>
-          <div className="badge-pill">System Telemetry</div>
           <h2>API Quota & Token Monitor</h2>
-          <p className="quota-subtitle">
-            Real-time tracking of API consumption, in-memory caching efficiency, and daily safety caps.
+          <p className="quota-topbar-sub">
+            Real-time tracking of API consumption, in-memory cache savings, and daily email limits.
           </p>
         </div>
 
         <button
           type="button"
-          className="btn-outline-action"
+          className="btn-refresh-quota"
           onClick={fetchQuota}
           disabled={loading}
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh Metrics</span>
+          <span>Refresh</span>
         </button>
       </div>
 
       {error && (
-        <div className="alert-banner alert-error">
+        <div className="ui-alert ui-alert-error">
           <AlertTriangle size={16} />
           <span>{error}</span>
         </div>
       )}
 
       {quota && (
-        <div className="quota-cards-grid">
-          {/* ── Places API Card ────────────────────────────────────────── */}
-          <div className="quota-card">
-            <div className="quota-card-header">
-              <div className="quota-card-title">
-                <Database size={16} className="text-zinc" />
+        <div className="quota-metric-cards">
+          {/* Places API */}
+          <div className="quota-box">
+            <div className="quota-box-top">
+              <div className="quota-box-title">
+                <Database size={16} className="text-slate" />
                 <span>Google Places API (New)</span>
               </div>
-              <span className={`status-pill ${quota.places?.configured ? 'status-active' : 'status-pending'}`}>
-                {quota.places?.configured ? (
-                  <>
-                    <CheckCircle2 size={12} />
-                    <span>Configured</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle size={12} />
-                    <span>Needs API Key</span>
-                  </>
-                )}
+              <span className={`status-badge ${quota.places?.configured ? 'status-ok' : 'status-warn'}`}>
+                {quota.places?.configured ? 'Active' : 'Missing Key'}
               </span>
             </div>
 
-            <div className="quota-stats-grid">
-              <div className="quota-stat-box">
-                <span className="stat-label">Live API Requests</span>
-                <span className="stat-value">{quota.places?.liveCalls || 0}</span>
+            <div className="quota-numbers-row">
+              <div className="number-unit">
+                <span className="unit-label">Live Calls</span>
+                <span className="unit-val">{quota.places?.liveCalls || 0}</span>
               </div>
-              <div className="quota-stat-box highlight-box">
-                <span className="stat-label">Cache Hits (Free)</span>
-                <span className="stat-value text-emerald">{quota.places?.cacheHits || 0}</span>
-                <span className="stat-footnote">100% quota saved</span>
+              <div className="number-unit highlight-unit">
+                <span className="unit-label">Cache Hits</span>
+                <span className="unit-val text-emerald">{quota.places?.cacheHits || 0}</span>
+                <span className="unit-note">100% saved</span>
               </div>
-              <div className="quota-stat-box">
-                <span className="stat-label">Cached Queries</span>
-                <span className="stat-value">{quota.places?.cachedQueries || 0}</span>
+              <div className="number-unit">
+                <span className="unit-label">Cached Queries</span>
+                <span className="unit-val">{quota.places?.cachedQueries || 0}</span>
               </div>
             </div>
 
-            <div className="quota-info-list">
-              <div className="quota-info-item">
-                <span className="info-key">Free Allowance:</span>
-                <span className="info-val">$200.00 credit / month (~90-100 searches)</span>
+            <div className="quota-details-list">
+              <div className="detail-item">
+                <span>Free Monthly Allowance:</span>
+                <strong>$200 credit / mo (~90-100 searches)</strong>
               </div>
-              <div className="quota-info-item">
-                <span className="info-key">Endpoint Cost:</span>
-                <span className="info-val">~$0.035 per Text Search page (20 places)</span>
+              <div className="detail-item">
+                <span>Request Cost:</span>
+                <strong>~$0.035 / Text Search page</strong>
               </div>
             </div>
           </div>
 
-          {/* ── Gemini API Card ────────────────────────────────────────── */}
-          <div className="quota-card">
-            <div className="quota-card-header">
-              <div className="quota-card-title">
-                <Zap size={16} className="text-zinc" />
+          {/* Gemini API */}
+          <div className="quota-box">
+            <div className="quota-box-top">
+              <div className="quota-box-title">
+                <Zap size={16} className="text-slate" />
                 <span>Google Gemini 2.0 Flash</span>
               </div>
-              <span className={`status-pill ${quota.gemini?.configured ? 'status-active' : 'status-neutral'}`}>
-                {quota.gemini?.configured ? (
-                  <>
-                    <CheckCircle2 size={12} />
-                    <span>Active</span>
-                  </>
-                ) : (
-                  <>
-                    <Info size={12} />
-                    <span>Fallback Engine</span>
-                  </>
-                )}
+              <span className={`status-badge ${quota.gemini?.configured ? 'status-ok' : 'status-neutral'}`}>
+                {quota.gemini?.configured ? 'Active' : 'Fallback Engine'}
               </span>
             </div>
 
-            <div className="quota-stats-grid">
-              <div className="quota-stat-box">
-                <span className="stat-label">Generations in Session</span>
-                <span className="stat-value">{quota.gemini?.totalCalls || 0}</span>
+            <div className="quota-numbers-row">
+              <div className="number-unit">
+                <span className="unit-label">AI Calls</span>
+                <span className="unit-val">{quota.gemini?.totalCalls || 0}</span>
               </div>
-              <div className="quota-stat-box">
-                <span className="stat-label">Templates Created</span>
-                <span className="stat-value">{quota.gemini?.templatesGenerated || 0}</span>
+              <div className="number-unit">
+                <span className="unit-label">Templates</span>
+                <span className="unit-val">{quota.gemini?.templatesGenerated || 0}</span>
               </div>
-              <div className="quota-stat-box">
-                <span className="stat-label">Rate Limit</span>
-                <span className="stat-value">15 RPM</span>
-                <span className="stat-footnote">Free tier RPM</span>
+              <div className="number-unit">
+                <span className="unit-label">Rate Limit</span>
+                <span className="unit-val">15 RPM</span>
+                <span className="unit-note">Free tier</span>
               </div>
             </div>
 
-            <div className="quota-info-list">
-              <div className="quota-info-item">
-                <span className="info-key">Daily Token Limit:</span>
-                <span className="info-val">1,000,000 tokens / day (Free tier)</span>
+            <div className="quota-details-list">
+              <div className="detail-item">
+                <span>Free Daily Allowance:</span>
+                <strong>1,000,000 tokens / day</strong>
               </div>
-              <div className="quota-info-item">
-                <span className="info-key">Optimization:</span>
-                <span className="info-val">1 call per niche (saves 95% tokens)</span>
+              <div className="detail-item">
+                <span>Efficiency:</span>
+                <strong>1 prompt per niche (saves 95% tokens)</strong>
               </div>
             </div>
           </div>
 
-          {/* ── Gmail SMTP Card ────────────────────────────────────────── */}
-          <div className="quota-card">
-            <div className="quota-card-header">
-              <div className="quota-card-title">
-                <Mail size={16} className="text-zinc" />
+          {/* Gmail SMTP */}
+          <div className="quota-box">
+            <div className="quota-box-top">
+              <div className="quota-box-title">
+                <Mail size={16} className="text-slate" />
                 <span>Gmail SMTP Sender</span>
               </div>
-              <span className={`status-pill ${quota.email?.configured ? 'status-active' : 'status-pending'}`}>
-                {quota.email?.configured ? (
-                  <>
-                    <CheckCircle2 size={12} />
-                    <span>Connected</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle size={12} />
-                    <span>Unconfigured</span>
-                  </>
-                )}
+              <span className={`status-badge ${quota.email?.configured ? 'status-ok' : 'status-warn'}`}>
+                {quota.email?.configured ? 'Connected' : 'Unconfigured'}
               </span>
             </div>
 
-            <div className="quota-stats-grid">
-              <div className="quota-stat-box">
-                <span className="stat-label">Sent Today</span>
-                <span className="stat-value">{quota.email?.sentToday || 0}</span>
-                <span className="stat-footnote">of {quota.email?.dailyCap || 50} cap</span>
+            <div className="quota-numbers-row">
+              <div className="number-unit">
+                <span className="unit-label">Sent Today</span>
+                <span className="unit-val">{quota.email?.sentToday || 0}</span>
+                <span className="unit-note">of {quota.email?.dailyCap || 50} cap</span>
               </div>
-              <div className="quota-stat-box">
-                <span className="stat-label">Remaining Today</span>
-                <span className="stat-value text-emerald">{quota.email?.remainingToday || 50}</span>
+              <div className="number-unit">
+                <span className="unit-label">Remaining Today</span>
+                <span className="unit-val text-emerald">{quota.email?.remainingToday || 50}</span>
               </div>
-              <div className="quota-stat-box">
-                <span className="stat-label">Do-Not-Contact</span>
-                <span className="stat-value">{quota.email?.dncCount || 0}</span>
-                <span className="stat-footnote">blacklisted emails</span>
+              <div className="number-unit">
+                <span className="unit-label">Blacklisted</span>
+                <span className="unit-val">{quota.email?.dncCount || 0}</span>
               </div>
             </div>
 
-            <div className="quota-info-list">
-              <div className="quota-info-item">
-                <span className="info-key">Account:</span>
-                <span className="info-val font-mono">{quota.email?.account || 'Not Set'}</span>
+            <div className="quota-details-list">
+              <div className="detail-item">
+                <span>Sender Account:</span>
+                <strong className="font-mono">{quota.email?.account || 'Not Set'}</strong>
               </div>
-              <div className="quota-info-item">
-                <span className="info-key">Safety Delay:</span>
-                <span className="info-val">{quota.email?.delayBetweenSends} between emails</span>
+              <div className="detail-item">
+                <span>Safety Delay:</span>
+                <strong>{quota.email?.delayBetweenSends} between emails</strong>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Quick Keys Reference ─────────────────────────────────────── */}
-      <div className="quota-guide-card">
-        <h3>API Keys Setup Checklist</h3>
-        <p className="guide-subtitle">
-          All configuration lives in your local <code>server/.env</code> file. No keys are ever shared or transmitted externally.
+      {/* Guide Card */}
+      <div className="keys-guide-box">
+        <h3>Where to get your API keys</h3>
+        <p className="keys-guide-sub">
+          Keys are stored safely in your local <code>server/.env</code> file.
         </p>
 
-        <div className="guide-steps">
-          <div className="guide-step">
-            <span className="step-num">1</span>
-            <div className="step-content">
-              <strong>Google Places API Key</strong>
-              <p>Enable &ldquo;Places API (New)&rdquo; in Google Cloud Console. Comes with $200 free credit monthly.</p>
+        <div className="keys-guide-grid">
+          <div className="guide-card">
+            <span className="guide-step-badge">1</span>
+            <div>
+              <strong>Google Places API (New)</strong>
+              <p>Enable &ldquo;Places API (New)&rdquo; on Google Cloud Console ($200 free credit monthly).</p>
               <a
                 href="https://console.cloud.google.com/apis/credentials"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="guide-link"
+                className="guide-anchor"
               >
                 <span>Google Cloud Credentials</span>
-                <ExternalLink size={12} />
+                <ExternalLink size={11} />
               </a>
             </div>
           </div>
 
-          <div className="guide-step">
-            <span className="step-num">2</span>
-            <div className="step-content">
-              <strong>Gemini API Key</strong>
-              <p>Get a free API key with 15 RPM and 1 million free tokens/day from Google AI Studio.</p>
+          <div className="guide-card">
+            <span className="guide-step-badge">2</span>
+            <div>
+              <strong>Google Gemini API</strong>
+              <p>Free 15 RPM / 1M token key from Google AI Studio.</p>
               <a
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="guide-link"
+                className="guide-anchor"
               >
                 <span>Google AI Studio</span>
-                <ExternalLink size={12} />
+                <ExternalLink size={11} />
               </a>
             </div>
           </div>
 
-          <div className="guide-step">
-            <span className="step-num">3</span>
-            <div className="step-content">
+          <div className="guide-card">
+            <span className="guide-step-badge">3</span>
+            <div>
               <strong>Gmail App Password</strong>
-              <p>Enable 2FA on your Google Account, then generate a 16-character App Password under Security.</p>
+              <p>16-char App Password from your Google Account security settings.</p>
               <a
                 href="https://myaccount.google.com/apppasswords"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="guide-link"
+                className="guide-anchor"
               >
                 <span>Google App Passwords</span>
-                <ExternalLink size={12} />
+                <ExternalLink size={11} />
               </a>
             </div>
           </div>
@@ -283,4 +249,3 @@ export default function QuotaMonitor() {
     </div>
   );
 }
-
