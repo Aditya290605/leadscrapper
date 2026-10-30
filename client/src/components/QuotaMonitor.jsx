@@ -109,7 +109,7 @@ export default function QuotaMonitor() {
             <div className="quota-box-top">
               <div className="quota-box-title">
                 <Zap size={16} className="text-slate" />
-                <span>Google Gemini 2.0 Flash</span>
+                <span>Google {quota.gemini?.model ? quota.gemini.model.replace(/^models\//, '') : 'Gemini 3.5 Flash'}</span>
               </div>
               <span className={`status-badge ${quota.gemini?.configured ? 'status-ok' : 'status-neutral'}`}>
                 {quota.gemini?.configured ? 'Active' : 'Fallback Engine'}

@@ -25,7 +25,7 @@ router.get('/', (_req, res) => {
       },
       gemini: {
         ...gemini,
-        label: 'Google Gemini 2.0 Flash',
+        label: `Google ${gemini.model || 'Gemini 3.5 Flash'}`,
         freeLimitInfo: '15 RPM · 1,000,000 tokens/day free',
       },
       email: {
