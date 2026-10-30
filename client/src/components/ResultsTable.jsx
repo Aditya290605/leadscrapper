@@ -279,7 +279,7 @@ export default function ResultsTable({
                         <span className="phone-val">{lead.phone}</span>
                         {lead.whatsappUrl && (
                           <a
-                            href={lead.whatsappUrl}
+                            href={`${lead.whatsappUrl}?text=${encodeURIComponent(`Hi ${lead.name} team, came across your business on Google Maps!`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn-wa-link"

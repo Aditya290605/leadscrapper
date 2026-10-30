@@ -2,18 +2,26 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 let genAI = null;
-const geminiStats = { totalCalls: 0, templatesGenerated: 0 };
+const geminiStats = { totalCalls: 0, templatesGenerated: 0, activeModel: 'gemini-3.5-flash' };
 
-function getModel() {
+// Ordered list of candidate models in case Google deprecates or throttles one
+const CANDIDATE_MODELS = [
+  process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3.8-flash',
+].filter((m, i, arr) => arr.indexOf(m) === i); // Deduplicate
+
+function getGenAI() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-    return null; // Signals we need fallback mode
+    return null;
   }
-
   if (!genAI) {
     genAI = new GoogleGenerativeAI(apiKey);
   }
-  return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  return genAI;
 }
 
 function getGeminiStats() {
@@ -21,7 +29,7 @@ function getGeminiStats() {
   const configured = !!apiKey && apiKey !== 'your_gemini_api_key_here';
   return {
     configured,
-    model: 'gemini-2.0-flash',
+    model: geminiStats.activeModel || process.env.GEMINI_MODEL || 'gemini-3.5-flash',
     totalCalls: geminiStats.totalCalls,
     templatesGenerated: geminiStats.templatesGenerated,
     rateLimitRpm: 15,
@@ -98,14 +106,43 @@ Thanks,
 }
 
 /**
+ * Generate content with automatic model fallback across candidate models.
+ */
+async function generateWithFallback(prompt, generationConfig = {}) {
+  const client = getGenAI();
+  if (!client) {
+    throw new Error('GEMINI_API_KEY is not configured');
+  }
+
+  let lastError = null;
+
+  for (const modelName of CANDIDATE_MODELS) {
+    try {
+      const model = client.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig,
+      });
+
+      geminiStats.activeModel = modelName;
+      return result.response.text();
+    } catch (err) {
+      lastError = err;
+      console.warn(`[gemini] Model "${modelName}" failed (${err.message.slice(0, 80)}...). Trying next candidate...`);
+    }
+  }
+
+  throw lastError || new Error('All candidate Gemini models failed');
+}
+
+/**
  * Generate a personalized cold email for a single lead in ONE single prompt.
  */
 async function generateEmail({ businessName, category, city }) {
   const senderName = process.env.SENDER_NAME || 'Aditya Magar';
   const studio = process.env.SENDER_STUDIO || 'Aditya Web Studio';
-  const model = getModel();
 
-  if (!model) {
+  if (!getGenAI()) {
     return {
       subject: `Website & online booking for ${businessName}`,
       body: `Hi there,\n\nCame across ${businessName} in ${city || 'your area'} and noticed you don't have an official website linked on Google Maps.\n\nWe build high-converting websites and WhatsApp booking systems for ${category || 'local businesses'} to help capture customers who search online.\n\nWould you be open to a quick 5-minute preview of what we could build for you?`,
@@ -131,16 +168,12 @@ Respond ONLY with valid JSON in this exact structure:
   "body": "..."
 }`;
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: {
+  try {
+    const responseText = await generateWithFallback(prompt, {
       temperature: 0.7,
       responseMimeType: 'application/json',
-    },
-  });
+    });
 
-  const responseText = result.response.text();
-  try {
     const parsed = cleanJsonOutput(responseText);
     return {
       subject: (parsed.subject || '').trim(),
@@ -149,7 +182,7 @@ Respond ONLY with valid JSON in this exact structure:
   } catch (err) {
     return {
       subject: `Website for ${businessName}`,
-      body: responseText.trim(),
+      body: `Hi there,\n\nCame across ${businessName} in ${city || 'your area'} and noticed you don't have an official website linked on Google Maps.\n\nWe build high-converting websites and WhatsApp booking systems for ${category || 'local businesses'}.\n\nWould you be open to a quick 5-minute chat?`,
     };
   }
 }
@@ -166,8 +199,7 @@ async function generateMasterTemplate({ query, category, city }) {
   const niche = (category || query || 'Local Business').trim();
   const location = (city || 'your area').trim();
 
-  const model = getModel();
-  if (!model) {
+  if (!getGenAI()) {
     console.log('[gemini] GEMINI_API_KEY is not configured. Serving intelligent fallback template.');
     return getFallbackTemplate({ niche, location, senderName, studioName, senderPhone });
   }
@@ -198,17 +230,15 @@ Respond ONLY with valid JSON matching this exact schema:
 }`;
 
   try {
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        responseMimeType: 'application/json',
-      },
+    const responseText = await generateWithFallback(prompt, {
+      temperature: 0.7,
+      responseMimeType: 'application/json',
     });
 
-    const parsed = cleanJsonOutput(result.response.text());
+    const parsed = cleanJsonOutput(responseText);
     return {
       isFallback: false,
+      activeModel: geminiStats.activeModel,
       niche,
       location,
       subjectLines: parsed.subjectLines || [],
@@ -229,7 +259,7 @@ Respond ONLY with valid JSON matching this exact schema:
       senderPhone,
     };
   } catch (err) {
-    console.warn('[gemini] AI generation failed, using fallback template:', err.message);
+    console.warn('[gemini] All AI models failed, using fallback template:', err.message);
     const fallback = getFallbackTemplate({ niche, location, senderName, studioName, senderPhone });
     fallback.error = err.message;
     return fallback;
