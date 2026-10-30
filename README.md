@@ -1,60 +1,76 @@
 # LeadScrapper
 
-Find businesses without websites → export to Excel → send AI-personalized outreach emails.
+> Find local businesses without a website, get their direct contact details, and pitch them in seconds.
 
-## Quick Start
+---
 
-```bash
-# Install everything
-npm run install:all
+### The Problem
 
-# Add your API keys
-cp server/.env.example server/.env
-# Edit server/.env with your keys (see below)
+Every local web designer, freelancer, and agency wants clients who actually need a website. 
 
-# Run both (in separate terminals)
-npm run dev:server   # Express API on :3001
-npm run dev:client   # Vite React on :5173
+Finding them manually is painful: you open Google Maps, search a category, click pins one by one, check if a website link exists, copy-paste phone numbers into notes, and try to guess what message to send them. Most of your afternoon is wasted before you even send one message.
+
+### Why LeadScrapper Exists
+
+LeadScrapper does all that busywork for you. You enter a business category and city (like *"gyms in Thane"* or *"dental clinics in Pune"*), and it instantly pulls Google Maps listings, automatically weeds out every business that already has a website, and hands you a clean list of businesses that don't have an online presence yet.
+
+You get their business name, phone number, location, Google rating, review count, and ready-to-use outreach copy to close them.
+
+---
+
+## Key Features
+
+### 🎯 Zero-Website Detection
+Every result shown is guaranteed to have no website attached to its Google Business profile. You only spend time pitching businesses that genuinely need your service.
+
+### 📍 Local Search Across Any Niche
+Search any business type in any neighborhood, city, or district:
+- Sports turfs & fitness centers
+- Doctors, dental & physiotherapy clinics
+- Salons, spas & wellness centers
+- Restaurants, cafes & cloud kitchens
+- Coaching classes & training academies
+- Repair shops, contractors & local services
+
+### 💬 1-Click Direct WhatsApp Outreach
+Most local business owners check WhatsApp before they ever check an email. LeadScrapper includes a direct WhatsApp action on every lead card—tap it, and WhatsApp Web opens with the business number and a personalized pitch message ready to send.
+
+### ✍️ Pre-Written Outreach Copy & Pitches
+Never stare at a blank screen trying to write a cold pitch:
+- **WhatsApp / SMS Message** — Short, polite, and directly focused on how a website will get them more bookings.
+- **Cold Email Pitch** — Professional, benefit-driven email body with multiple high-converting subject line options.
+- **3-Day Follow-Up Message** — A friendly bump message to re-engage owners who did not reply the first time.
+- **Key Talking Points** — Bullet points on what to say if you call them directly.
+- **Smart Placeholders** — Messages automatically fill in the business name, city, and your contact info.
+
+### 🔍 Smart Filtering & Sorting
+- Filter by star rating (4.5+ stars, 4.0+, below 4, or unrated).
+- Filter by contact availability (businesses with mobile numbers vs. unlisted).
+- Sort instantly by highest rating, highest number of reviews, or alphabetical order.
+
+### 📊 Instant Excel & CSV Exports
+Need to import leads into your CRM or Google Sheets? Download your selected leads or the entire batch in one click as a structured `.xlsx` or `.csv` spreadsheet with clean columns for names, phone numbers, addresses, ratings, and status.
+
+---
+
+## How It Works
+
+```
+1. Search          Enter what you're looking for (e.g. "salons in Bandra")
+       ↓
+2. Filter          LeadScrapper strips out businesses with websites and organizes the rest
+       ↓
+3. Pitch           Send a 1-click WhatsApp message, copy email templates, or export to Excel
 ```
 
-Open http://localhost:5173
+1. **Enter Your Target:** Type a niche and city into the search bar.
+2. **Review Verified Leads:** Scan through the table with business names, ratings, reviews, addresses, and phone numbers.
+3. **Reach Out & Close:** Open WhatsApp directly with a pre-filled pitch, copy the outreach templates, or export the spreadsheet for later.
 
-## API Keys You Need
+---
 
-| Key | Where to get it | Free tier |
-|-----|-----------------|-----------|
-| Google Places API | [Cloud Console](https://console.cloud.google.com/) → enable "Places API (New)" → Credentials → API Key | $200/month credit (~90 searches of 100 results) |
-| Gemini API | [AI Studio](https://aistudio.google.com/app/apikey) → Create API Key | 15 RPM, 1M tokens/day free |
-| Gmail App Password | [Google Account](https://myaccount.google.com/apppasswords) (requires 2FA enabled) | 500 emails/day |
+## Who It Is For
 
-## Project Structure
-
-```
-server/
-  services/places.js   — Google Places API wrapper
-  services/gemini.js   — Gemini email generation
-  services/mailer.js   — Gmail SMTP + HTML template
-  routes/search.js     — POST /api/search
-  routes/export.js     — POST /api/export/xlsx, /csv
-  routes/email.js      — POST /api/email/generate, /send
-
-client/
-  src/App.jsx           — Main app (3-tab flow)
-  src/components/
-    SearchForm.jsx      — Category + city input
-    ResultsTable.jsx    — Results with checkboxes + export
-    EmailPreview.jsx    — AI email drafts + send
-```
-
-## Flow
-
-1. **Search** — enter category + city → finds businesses via Google Places API → filters to those without websites
-2. **Results** — review table, fill in emails manually, export to XLSX/CSV
-3. **Email** — generate AI-personalized emails via Gemini → edit → send via Gmail
-
-## Notes
-
-- **Emails are NOT available from Google Places API.** You add them manually in the results table.
-- **Gmail has a 500 emails/day limit.** Default cap is set to 50 in `.env`.
-- **Do-not-contact list** lives in `server/data/do-not-contact.json`. Managed via API.
-- **Every email includes an unsubscribe link** per Indian IT Act compliance.
+- **Freelance Web Designers & Developers:** Stop cold-calling random businesses. Find owners who have active customers on Google Maps but zero web presence.
+- **Digital Marketing Agencies:** Build targeted lead lists for local SEO, Google Business profile optimization, and social media management.
+- **Sales & Business Development Reps:** Save hours of manual scraping and research every week.
