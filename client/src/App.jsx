@@ -1,24 +1,38 @@
 import { useState } from 'react';
-import { Search, Table2, MessageSquare, Activity, MapPin, ChevronRight, ExternalLink } from 'lucide-react';
+import { Search, Table2, MessageSquare, Activity, MapPin } from 'lucide-react';
 import SearchForm from './components/SearchForm';
 import ResultsTable from './components/ResultsTable';
 import OutreachTemplates from './components/OutreachTemplates';
 import QuotaMonitor from './components/QuotaMonitor';
+import { getSeenIds, addSeenIds, clearSeenIds } from './utils/seenLeads';
 
 export default function App() {
   const [tab, setTab] = useState('search');
   const [leads, setLeads] = useState([]);
-  const [meta, setMeta] = useState({ total: 0, filtered: 0, query: '' });
+  const [skippedLeads, setSkippedLeads] = useState([]);
+  const [meta, setMeta] = useState({ total: 0, filtered: 0, duplicatesSkipped: 0, query: '' });
+  const [seenCount, setSeenCount] = useState(() => getSeenIds().length);
 
-  const handleSearchResults = ({ leads, total, filtered, query }) => {
+  const handleSearchResults = ({ leads, skippedLeads = [], total, filtered, duplicatesSkipped = 0, query }) => {
     setLeads(leads);
-    setMeta({ total, filtered, query });
+    setSkippedLeads(skippedLeads);
+    setMeta({ total, filtered, duplicatesSkipped, query });
+    if (leads.length > 0) {
+      setSeenCount(addSeenIds(leads.map((l) => l.id)));
+    }
     setTab('results');
+  };
+
+  const handleResetSeen = () => {
+    clearSeenIds();
+    setSeenCount(0);
   };
 
   const handleOpenTemplate = ({ query }) => {
     setTab('templates');
   };
+
+  const hasAnyResults = leads.length > 0 || skippedLeads.length > 0;
 
   return (
     <div className="layout-shell">
@@ -51,7 +65,7 @@ export default function App() {
               type="button"
               className={`sidebar-nav-btn ${tab === 'results' ? 'active' : ''}`}
               onClick={() => setTab('results')}
-              disabled={leads.length === 0}
+              disabled={!hasAnyResults}
             >
               <Table2 size={16} />
               <span>Leads Table</span>
@@ -98,15 +112,25 @@ export default function App() {
       {/* ── Main View Area ───────────────────────────────────────────── */}
       <main className="layout-content">
         <div className="content-inner">
-          {tab === 'search' && <SearchForm onResults={handleSearchResults} />}
+          {tab === 'search' && (
+            <SearchForm
+              onResults={handleSearchResults}
+              seenCount={seenCount}
+              onResetSeen={handleResetSeen}
+            />
+          )}
 
           {tab === 'results' && (
             <ResultsTable
               leads={leads}
+              skippedLeads={skippedLeads}
               total={meta.total}
               filtered={meta.filtered}
+              duplicatesSkipped={meta.duplicatesSkipped}
               query={meta.query}
               onLeadsUpdate={setLeads}
+              onSkippedLeadsUpdate={setSkippedLeads}
+              onResetSeen={handleResetSeen}
               onOpenTemplate={handleOpenTemplate}
             />
           )}
@@ -114,7 +138,7 @@ export default function App() {
           {tab === 'templates' && (
             <OutreachTemplates
               query={meta.query || 'Local Businesses'}
-              leads={leads}
+              leads={leads.length > 0 ? leads : skippedLeads}
               onBack={() => setTab('results')}
             />
           )}

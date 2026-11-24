@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
   try {
-    const { query, category, location, maxPages, refresh } = req.body;
+    const { query, category, location, maxPages, refresh, excludeIds, hideSeen } = req.body;
 
     const finalQuery = buildSearchQuery(query, category, location);
 
@@ -16,21 +16,30 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Cap at 10 pages (200 results) to limit Google Places API spend
+    // Cap at 10 pages (~200 results) to limit Google Places API spend
     const pages = Math.min(Math.max(parseInt(maxPages, 10) || 3, 1), 10);
+    const safeExcludeIds = Array.isArray(excludeIds)
+      ? excludeIds.filter((id) => typeof id === 'string' && id.trim()).slice(0, 10000)
+      : [];
 
-    console.log(`[search] Query: "${finalQuery}" (max ${pages} pages, refresh=${!!refresh})...`);
+    console.log(`[search] Query: "${finalQuery}" (max ${pages} pages, refresh=${!!refresh}, seenIds=${safeExcludeIds.length})...`);
     const raw = await searchBusinesses(finalQuery, pages, !!refresh);
-    console.log(`[search] Found ${raw.length} total results, filtering...`);
+    console.log(`[search] Found ${raw.length} unique total results, filtering...`);
 
-    const leads = filterNoWebsite(raw);
-    console.log(`[search] ${leads.length} businesses without a website`);
+    const allLeads = filterNoWebsite(raw, { excludeIds: safeExcludeIds });
+    const shouldHideSeen = hideSeen !== false && safeExcludeIds.length > 0;
+    const skippedLeads = shouldHideSeen ? allLeads.filter((l) => l.isSeen) : [];
+    const leads = shouldHideSeen ? allLeads.filter((l) => !l.isSeen) : allLeads;
+
+    console.log(`[search] ${leads.length} fresh businesses without a website (${skippedLeads.length} already seen skipped)`);
 
     res.json({
       query: finalQuery,
       total: raw.length,
-      filtered: leads.length,
+      filtered: allLeads.length,
+      duplicatesSkipped: skippedLeads.length,
       leads,
+      skippedLeads,
     });
   } catch (err) {
     console.error('[search] Error:', err.message);

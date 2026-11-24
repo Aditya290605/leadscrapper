@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, SlidersHorizontal, AlertCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { Search, AlertCircle, ArrowRight, RotateCcw } from 'lucide-react';
+import { getSeenIds } from '../utils/seenLeads';
 
 const ANIMATED_PROMPTS = [
   'turf in mumbai',
@@ -19,9 +20,10 @@ const POPULAR_QUERIES = [
   'salons in bandra',
 ];
 
-export default function SearchForm({ onResults }) {
+export default function SearchForm({ onResults, seenCount = 0, onResetSeen }) {
   const [query, setQuery] = useState('');
   const [maxPages, setMaxPages] = useState('3');
+  const [hideSeen, setHideSeen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -89,12 +91,15 @@ export default function SearchForm({ onResults }) {
     setError('');
 
     try {
+      const excludeIds = getSeenIds();
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: searchQuery,
           maxPages: parseInt(maxPages, 10),
+          excludeIds,
+          hideSeen,
         }),
       });
 
@@ -103,8 +108,10 @@ export default function SearchForm({ onResults }) {
 
       onResults({
         leads: data.leads,
+        skippedLeads: data.skippedLeads || [],
         total: data.total,
         filtered: data.filtered,
+        duplicatesSkipped: data.duplicatesSkipped || 0,
         query: searchQuery,
       });
     } catch (err) {
@@ -157,19 +164,50 @@ export default function SearchForm({ onResults }) {
           </div>
 
           <div className="search-bar-actions">
-            <div className="select-depth-box">
-              <label htmlFor="maxPages">Scan Volume:</label>
-              <select
-                id="maxPages"
-                value={maxPages}
-                onChange={(e) => setMaxPages(e.target.value)}
-                disabled={loading}
-              >
-                <option value="1">~20 leads</option>
-                <option value="3">~60 leads</option>
-                <option value="5">~100 leads</option>
-                <option value="10">~200 leads</option>
-              </select>
+            <div className="search-controls-left">
+              <div className="select-depth-box">
+                <label htmlFor="maxPages">Scan Volume:</label>
+                <select
+                  id="maxPages"
+                  value={maxPages}
+                  onChange={(e) => setMaxPages(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="1">~20 leads</option>
+                  <option value="3">~60 leads</option>
+                  <option value="5">~100 leads</option>
+                  <option value="10">~200 leads</option>
+                </select>
+              </div>
+
+              <div className="dedup-toggle-box">
+                <label className="dedup-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={hideSeen}
+                    onChange={(e) => setHideSeen(e.target.checked)}
+                    disabled={loading}
+                  />
+                  <span>Skip seen</span>
+                </label>
+                {seenCount > 0 && (
+                  <>
+                    <span className="dedup-count-pill">({seenCount})</span>
+                    {onResetSeen && (
+                      <button
+                        type="button"
+                        className="btn-reset-seen"
+                        onClick={onResetSeen}
+                        disabled={loading}
+                        title="Clear saved seen businesses history"
+                      >
+                        <RotateCcw size={11} />
+                        <span>Reset</span>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             <button
@@ -180,7 +218,7 @@ export default function SearchForm({ onResults }) {
               {loading ? (
                 <>
                   <span className="btn-spinner" />
-                  <span>Scanning Maps...</span>
+                  <span>{parseInt(maxPages, 10) > 3 ? 'Deep Scanning Area...' : 'Scanning Maps...'}</span>
                 </>
               ) : (
                 <>

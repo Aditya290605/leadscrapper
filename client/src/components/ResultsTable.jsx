@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Download,
   FileSpreadsheet,
@@ -11,24 +11,40 @@ import {
   Copy,
   ChevronDown,
   Building2,
-  Phone,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export default function ResultsTable({
   leads,
+  skippedLeads = [],
   total,
   filtered,
+  duplicatesSkipped = 0,
   query,
   onLeadsUpdate,
+  onSkippedLeadsUpdate,
+  onResetSeen,
   onOpenTemplate,
 }) {
   const [selected, setSelected] = useState(new Set());
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showSeen, setShowSeen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [ratingFilter, setRatingFilter] = useState('all');
   const [phoneFilter, setPhoneFilter] = useState('all');
   const [sortBy, setSortBy] = useState('rating_desc');
   const [copiedId, setCopiedId] = useState(null);
+
+  useEffect(() => {
+    setShowSeen(false);
+    setSelected(new Set());
+  }, [leads, skippedLeads]);
+
+  const activeLeads = useMemo(
+    () => (showSeen ? [...leads, ...skippedLeads] : leads),
+    [leads, skippedLeads, showSeen]
+  );
 
   const toggle = (id) => {
     setSelected((prev) => {
@@ -38,15 +54,18 @@ export default function ResultsTable({
     });
   };
 
-  const allSelected = leads.length > 0 && selected.size === leads.length;
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(leads.map((l) => l.id)));
+  const allSelected = activeLeads.length > 0 && selected.size === activeLeads.length;
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(activeLeads.map((l) => l.id)));
 
   const updateEmail = (id, email) => {
     onLeadsUpdate(leads.map((l) => (l.id === id ? { ...l, email } : l)));
+    if (onSkippedLeadsUpdate && skippedLeads.length > 0) {
+      onSkippedLeadsUpdate(skippedLeads.map((l) => (l.id === id ? { ...l, email } : l)));
+    }
   };
 
   const filteredAndSortedLeads = useMemo(() => {
-    let result = [...leads];
+    let result = [...activeLeads];
 
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
@@ -83,7 +102,7 @@ export default function ResultsTable({
     });
 
     return result;
-  }, [leads, searchTerm, ratingFilter, phoneFilter, sortBy]);
+  }, [activeLeads, searchTerm, ratingFilter, phoneFilter, sortBy]);
 
   const downloadBlob = (blob, filename) => {
     const url = URL.createObjectURL(blob);
@@ -95,7 +114,7 @@ export default function ResultsTable({
   };
 
   const handleExport = async (type) => {
-    const targetLeads = selected.size > 0 ? leads.filter((l) => selected.has(l.id)) : leads;
+    const targetLeads = selected.size > 0 ? activeLeads.filter((l) => selected.has(l.id)) : activeLeads;
     const endpoint = type === 'xlsx' ? '/api/export/xlsx' : '/api/export/csv';
     const filename = `leads_${query ? query.replace(/\s+/g, '_') : 'export'}.${type}`;
 
@@ -121,12 +140,35 @@ export default function ResultsTable({
     setTimeout(() => setCopiedId(null), 1800);
   };
 
-  if (!leads.length) {
+  if (!leads.length && !skippedLeads.length) {
     return (
       <div className="empty-panel">
         <Building2 size={36} className="empty-panel-icon" />
         <h3>No leads loaded</h3>
         <p>Run a search from the left navigation to find businesses without websites.</p>
+      </div>
+    );
+  }
+
+  if (!leads.length && skippedLeads.length > 0 && !showSeen) {
+    return (
+      <div className="empty-panel">
+        <Building2 size={36} className="empty-panel-icon" />
+        <h3>All {skippedLeads.length} matching leads were already seen</h3>
+        <p>
+          Scanned <strong>{total}</strong> places for &ldquo;{query}&rdquo; — every business without a website appeared in your earlier searches.
+        </p>
+        <div className="empty-panel-actions">
+          <button type="button" className="btn-sheet-primary" onClick={() => setShowSeen(true)}>
+            <Eye size={14} />
+            <span>Show {skippedLeads.length} previously seen</span>
+          </button>
+          {onResetSeen && (
+            <button type="button" className="btn-sheet-secondary" onClick={onResetSeen}>
+              Reset seen history
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -138,7 +180,15 @@ export default function ResultsTable({
         <div>
           <h2 className="sheet-title">Scraped Businesses</h2>
           <p className="sheet-meta-desc">
-            Found <strong>{filtered}</strong> businesses without a website out of <strong>{total}</strong> scanned for &ldquo;{query}&rdquo;.
+            {duplicatesSkipped > 0 ? (
+              <>
+                Found <strong>{leads.length}</strong> fresh businesses without a website (<strong>{duplicatesSkipped}</strong> already seen skipped) out of <strong>{total}</strong> scanned for &ldquo;{query}&rdquo;.
+              </>
+            ) : (
+              <>
+                Found <strong>{filtered}</strong> businesses without a website out of <strong>{total}</strong> scanned for &ldquo;{query}&rdquo;.
+              </>
+            )}
           </p>
         </div>
 
@@ -185,7 +235,7 @@ export default function ResultsTable({
           <button
             type="button"
             className="btn-sheet-primary"
-            onClick={() => onOpenTemplate({ leads, query })}
+            onClick={() => onOpenTemplate({ leads: activeLeads, query })}
           >
             <MessageSquare size={14} />
             <span>Outreach Copy</span>
@@ -226,6 +276,17 @@ export default function ResultsTable({
             <option value="reviews_desc">Most Reviews</option>
             <option value="name_asc">Name (A-Z)</option>
           </select>
+
+          {skippedLeads.length > 0 && (
+            <button
+              type="button"
+              className="btn-toggle-seen"
+              onClick={() => setShowSeen((s) => !s)}
+            >
+              {showSeen ? <EyeOff size={13} /> : <Eye size={13} />}
+              <span>{showSeen ? `Hide ${skippedLeads.length} seen` : `Show ${skippedLeads.length} seen`}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -269,7 +330,10 @@ export default function ResultsTable({
                   <td>
                     <div className="lead-name-cell">
                       <span className="lead-name-text">{lead.name}</span>
-                      <span className="badge-no-web">No Website</span>
+                      <div className="lead-badges-row">
+                        <span className="badge-no-web">No Website</span>
+                        {lead.isSeen && <span className="badge-seen">Seen before</span>}
+                      </div>
                     </div>
                   </td>
 
@@ -364,7 +428,7 @@ export default function ResultsTable({
       </div>
 
       <div className="sheet-bottom-summary">
-        <span>Showing {filteredAndSortedLeads.length} of {leads.length} businesses</span>
+        <span>Showing {filteredAndSortedLeads.length} of {activeLeads.length} businesses</span>
         {selected.size > 0 && <span><strong>{selected.size}</strong> selected for export</span>}
       </div>
     </div>
